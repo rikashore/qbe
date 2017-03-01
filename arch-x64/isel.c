@@ -123,7 +123,7 @@ fixarg(Ref *r, int k, int phi, Fn *fn)
 		memset(&a, 0, sizeof a);
 		a.offset.type = CAddr;
 		a.offset.local = 1;
-		n = stashfp(fn->con[r0.val].bits.i, KWIDE(k));
+		n = stashfp_x64(fn->con[r0.val].bits.i, KWIDE(k));
 		sprintf(a.offset.label, "fp%d", n);
 		fn->mem[fn->nmem-1] = a;
 	}
@@ -593,7 +593,7 @@ amatch(Addr *a, Ref r, ANum *ai, Fn *fn, int top)
  * requires use counts (as given by parsing)
  */
 void
-isel(Fn *fn)
+isel_x64(Fn *fn)
 {
 	Blk *b, **sb;
 	Ins *i;

@@ -619,7 +619,7 @@ bits argregs(Ref, int[2]);
 void abi(Fn *);
 
 /* isel.c */
-void isel(Fn *);
+void isel_x64(Fn *);
 
 /* spill.c */
 void fillcost(Fn *);
@@ -629,9 +629,9 @@ void spill(Fn *);
 void rega(Fn *);
 
 /* emit.c */
-extern char *locprefix;
-extern char *symprefix;
-void emitfn(Fn *, FILE *);
-void emitdat(Dat *, FILE *);
-int stashfp(int64_t, int);
-void emitfin(FILE *);
+extern char *locprefix_x64;
+extern char *symprefix_x64;
+void emitfn_x64(Fn *, FILE *);
+void emitdat_x64(Dat *, FILE *);
+int stashfp_x64(int64_t, int);
+void emitfin_x64(FILE *);

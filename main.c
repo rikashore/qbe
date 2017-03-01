@@ -33,7 +33,7 @@ data(Dat *d)
 		fputs("/* end data */\n\n", outf);
 		freeall();
 	}
-	emitdat(d, outf);
+	emitdat_x64(d, outf);
 }
 
 static void
@@ -65,7 +65,7 @@ func(Fn *fn)
 	abi(fn);
 	fillpreds(fn);
 	filluse(fn);
-	isel(fn);
+	isel_x64(fn);
 	fillrpo(fn);
 	filllive(fn);
 	fillcost(fn);
@@ -83,7 +83,7 @@ func(Fn *fn)
 		} else
 			fn->rpo[n]->link = fn->rpo[n+1];
 	if (!dbg) {
-		emitfn(fn, outf);
+		emitfn_x64(fn, outf);
 		fprintf(outf, "/* end function %s */\n\n", fn->name);
 	} else
 		fprintf(stderr, "\n");
@@ -134,12 +134,12 @@ main(int ac, char *av[])
 
 	switch (asm) {
 	case Gaself:
-		locprefix = ".L";
-		symprefix = "";
+		locprefix_x64 = ".L";
+		symprefix_x64 = "";
 		break;
 	case Gasmacho:
-		locprefix = "L";
-		symprefix = "_";
+		locprefix_x64 = "L";
+		symprefix_x64 = "_";
 		break;
 	}
 
@@ -159,7 +159,7 @@ main(int ac, char *av[])
 	} while (++optind < ac);
 
 	if (!dbg)
-		emitfin(outf);
+		emitfin_x64(outf);
 
 	exit(0);
 }

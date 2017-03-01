@@ -1,10 +1,10 @@
 BIN = qbe
-ABI = sysv
 
 V = @
 OBJDIR = obj
 
-SRC = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c fold.c live.c $(ABI).c isel.c spill.c rega.c emit.c
+SRC = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c fold.c \
+      live.c spill.c rega.c sysv.c arch-x64/isel.c arch-x64/emit.c
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
 CFLAGS += -Wall -Wextra -std=c99 -g -pedantic
@@ -15,10 +15,11 @@ $(OBJDIR)/$(BIN): $(OBJ) $(OBJDIR)/timestamp
 
 $(OBJDIR)/%.o: %.c $(OBJDIR)/timestamp
 	@test -z "$(V)" || echo "cc $<"
-	$(V)$(CC) $(CFLAGS) -c $< -o $@
+	$(V)$(CC) $(CFLAGS) -I . -c $< -o $@
 
 $(OBJDIR)/timestamp:
 	@mkdir -p $(OBJDIR)
+	@mkdir -p $(OBJDIR)/arch-x64
 	@touch $@
 
 $(OBJ): all.h

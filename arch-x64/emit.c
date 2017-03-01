@@ -1,6 +1,6 @@
 #include "all.h"
 
-char *locprefix, *symprefix;
+char *locprefix_x64, *symprefix_x64;
 
 enum {
 	SLong = 0,
@@ -153,9 +153,9 @@ emitcon(Con *con, FILE *f)
 	switch (con->type) {
 	case CAddr:
 		if (con->local)
-			fprintf(f, "%s%s", locprefix, con->label);
+			fprintf(f, "%s%s", locprefix_x64, con->label);
 		else
-			fprintf(f, "%s%s", symprefix, con->label);
+			fprintf(f, "%s%s", symprefix_x64, con->label);
 		if (con->bits.i)
 			fprintf(f, "%+"PRId64, con->bits.i);
 		break;
@@ -486,7 +486,7 @@ framesz(Fn *fn)
 }
 
 void
-emitfn(Fn *fn, FILE *f)
+emitfn_x64(Fn *fn, FILE *f)
 {
 	static char *ctoa[] = {
 		[ICeq]  = "z",
@@ -509,12 +509,12 @@ emitfn(Fn *fn, FILE *f)
 
 	fprintf(f, ".text\n");
 	if (fn->export)
-		fprintf(f, ".globl %s%s\n", symprefix, fn->name);
+		fprintf(f, ".globl %s%s\n", symprefix_x64, fn->name);
 	fprintf(f,
 		"%s%s:\n"
 		"\tpushq %%rbp\n"
 		"\tmovq %%rsp, %%rbp\n",
-		symprefix, fn->name
+		symprefix_x64, fn->name
 	);
 	fs = framesz(fn);
 	if (fs)
@@ -534,7 +534,7 @@ emitfn(Fn *fn, FILE *f)
 
 	for (lbl=0, b=fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
-			fprintf(f, "%sbb%d:\n", locprefix, id0+b->id);
+			fprintf(f, "%sbb%d:\n", locprefix_x64, id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
 			emitins(*i, fn, f);
 		lbl = 1;
@@ -554,7 +554,7 @@ emitfn(Fn *fn, FILE *f)
 		Jmp:
 			if (b->s1 != b->link)
 				fprintf(f, "\tjmp %sbb%d\n",
-					locprefix, id0+b->s1->id);
+					locprefix_x64, id0+b->s1->id);
 			else
 				lbl = 0;
 			break;
@@ -568,7 +568,7 @@ emitfn(Fn *fn, FILE *f)
 				} else
 					c = cneg(c);
 				fprintf(f, "\tj%s %sbb%d\n", ctoa[c],
-					locprefix, id0+b->s2->id);
+					locprefix_x64, id0+b->s2->id);
 				goto Jmp;
 			}
 			die("unhandled jump %d", b->jmp.type);
@@ -578,7 +578,7 @@ emitfn(Fn *fn, FILE *f)
 }
 
 void
-emitdat(Dat *d, FILE *f)
+emitdat_x64(Dat *d, FILE *f)
 {
 	static int align;
 	static char *dtoa[] = {
@@ -600,8 +600,8 @@ emitdat(Dat *d, FILE *f)
 		if (!align)
 			fprintf(f, ".align 8\n");
 		if (d->export)
-			fprintf(f, ".globl %s%s\n", symprefix, d->u.str);
-		fprintf(f, "%s%s:\n", symprefix, d->u.str);
+			fprintf(f, ".globl %s%s\n", symprefix_x64, d->u.str);
+		fprintf(f, "%s%s:\n", symprefix_x64, d->u.str);
 		break;
 	case DZ:
 		fprintf(f, "\t.fill %"PRId64",1,0\n", d->u.num);
@@ -643,7 +643,7 @@ struct FBits {
 static FBits *stash;
 
 int
-stashfp(int64_t n, int w)
+stashfp_x64(int64_t n, int w)
 {
 	FBits **pb, *b;
 	int i;
@@ -662,7 +662,7 @@ stashfp(int64_t n, int w)
 }
 
 void
-emitfin(FILE *f)
+emitfin_x64(FILE *f)
 {
 	FBits *b;
 	int i;
@@ -677,7 +677,7 @@ emitfin(FILE *f)
 				"%sfp%d:\n"
 				"\t.quad %"PRId64
 				" /* %f */\n",
-				locprefix, i, b->bits.n,
+				locprefix_x64, i, b->bits.n,
 				b->bits.d
 			);
 	for (b=stash, i=0; b; b=b->link, i++)
@@ -686,7 +686,7 @@ emitfin(FILE *f)
 				"%sfp%d:\n"
 				"\t.long %"PRId64
 				" /* %lf */\n",
-				locprefix, i, b->bits.n & 0xffffffff,
+				locprefix_x64, i, b->bits.n & 0xffffffff,
 				b->bits.f
 			);
 	while ((b=stash)) {
