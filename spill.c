@@ -445,7 +445,7 @@ spill(Fn *fn)
 				bsclr(v, t);
 			}
 			emiti(*i);
-			r = v->t[0] & (BIT(Tmp0)-1);
+			r = v->t[0]; /* Tmp0 is NBit */
 			if (r)
 				sethint(v, r);
 		}

@@ -27,6 +27,7 @@ typedef struct Fn Fn;
 typedef struct Typ Typ;
 typedef struct Seg Seg;
 typedef struct Dat Dat;
+typedef struct Target Target;
 
 enum {
 	NString = 32,
@@ -38,61 +39,23 @@ enum {
 	NBit    = CHAR_BIT * sizeof(bits),
 };
 
-#define BIT(n) ((bits)1 << (n))
-
-enum Reg {
-	RXX,
-
-	RAX, /* caller-save */
-	RCX,
-	RDX,
-	RSI,
-	RDI,
-	R8,
-	R9,
-	R10,
-	R11,
-
-	RBX, /* callee-save */
-	R12,
-	R13,
-	R14,
-	R15,
-
-	RBP, /* globally live */
-	RSP,
-#define RGLOB (BIT(RBP)|BIT(RSP))
-
-	XMM0, /* sse */
-	XMM1,
-	XMM2,
-	XMM3,
-	XMM4,
-	XMM5,
-	XMM6,
-	XMM7,
-	XMM8,
-	XMM9,
-	XMM10,
-	XMM11,
-	XMM12,
-	XMM13,
-	XMM14,
-	XMM15,
-
-	Tmp0, /* first non-reg temporary */
-
-	NRGlob = 2,
-	NIReg = R15 - RAX + 1 + NRGlob,
-	NFReg = XMM14 - XMM0 + 1, /* XMM15 is reserved */
-	NISave = R11 - RAX + 1,
-	NFSave = NFReg,
-	NRSave = NISave + NFSave,
-	NRClob = R15 - RBX + 1,
+struct Target {
+	int gpr0; /* first general purpose reg */
+	int ngpr;
+	int fpr0; /* first floating point ret */
+	int nfpr;
+	bits rglob; /* globally live regs (sp, fp) */
+	int nrglob;
+	bits (*retregs)(Ref, int[2]);
+	bits (*argregs)(Ref, int[2]);
 };
 
-MAKESURE(NBit_is_enough, NBit >= (int)Tmp0);
+#define BIT(n) ((bits)1 << (n))
 
+enum {
+	RXX = 0,
+	Tmp0 = NBit, /* first non-reg temporary */
+};
 
 struct BSet {
 	uint nt;
@@ -508,8 +471,10 @@ struct Dat {
 	char export;
 };
 
+#include "arch-x64/arch.h"
 
 /* main.c */
+extern Target T;
 extern char debug['Z'+1];
 
 /* util.c */

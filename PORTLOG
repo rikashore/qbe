@@ -1,0 +1,4 @@
+2017/3/3 - (1040 to 1150)
+Introduce Target struct, try to make live.c
+architecture independent, try to understand
+arm abi.

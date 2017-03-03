@@ -1,4 +1,4 @@
-#include "all.h"
+#include "../all.h"
 
 typedef struct AClass AClass;
 typedef struct RAlloc RAlloc;

@@ -1,4 +1,4 @@
-#include "all.h"
+#include "../all.h"
 
 char *locprefix_x64, *symprefix_x64;
 

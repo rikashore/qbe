@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include <getopt.h>
 
+Target T;
+
 enum Asm {
 	Gasmacho,
 	Gaself,
@@ -98,6 +100,7 @@ main(int ac, char *av[])
 	int c, asm;
 
 	asm = Defaultasm;
+	T = Tx64;
 	outf = stdout;
 	while ((c = getopt(ac, av, "hd:o:G:")) != -1)
 		switch (c) {
