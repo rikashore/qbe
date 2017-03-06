@@ -64,7 +64,7 @@ func(Fn *fn)
 	copy(fn);
 	filluse(fn);
 	fold(fn);
-	abi(fn);
+	x64_sysv_abi(fn);
 	fillpreds(fn);
 	filluse(fn);
 	isel_x64(fn);

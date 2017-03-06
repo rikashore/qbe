@@ -53,4 +53,27 @@ enum {
 
 #endif
 
+/* arch.c */
+extern int x64_sysv_rsave[];
+extern int x64_sysv_rclob[];
 extern Target Tx64;
+
+/* abi: sysv.c */
+#ifndef PORTING
+extern int rsave[/* NRSave */];
+extern int rclob[/* NRClob */];
+bits retregs(Ref, int[2]);
+bits argregs(Ref, int[2]);
+#endif
+void x64_sysv_abi(Fn *);
+
+/* isel.c */
+void isel_x64(Fn *);
+
+/* emit.c */
+extern char *locprefix_x64;
+extern char *symprefix_x64;
+void emitfn_x64(Fn *, FILE *);
+void emitdat_x64(Dat *, FILE *);
+int stashfp_x64(int64_t, int);
+void emitfin_x64(FILE *);

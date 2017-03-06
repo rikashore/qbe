@@ -226,16 +226,6 @@ argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
 	return ((6-nint) << 4) | ((8-nsse) << 8);
 }
 
-int rsave[] = {
-	RDI, RSI, RDX, RCX, R8, R9, R10, R11, RAX,
-	XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
-	XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14
-};
-int rclob[] = {RBX, R12, R13, R14, R15};
-
-MAKESURE(rsave_has_correct_size, sizeof rsave == NRSave * sizeof(int));
-MAKESURE(rclob_has_correct_size, sizeof rclob == NRClob * sizeof(int));
-
 /* layout of call's second argument (RCall)
  *
  *  29     12    8    4  3  0
@@ -649,7 +639,7 @@ selvastart(Fn *fn, int fa, Ref ap)
 }
 
 void
-abi(Fn *fn)
+x64_sysv_abi(Fn *fn)
 {
 	Blk *b;
 	Ins *i, *i0, *ip;

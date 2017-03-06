@@ -40,13 +40,15 @@ enum {
 };
 
 struct Target {
-	int gpr0; /* first general purpose reg */
+	int gpr0;   /* first general purpose reg */
 	int ngpr;
-	int fpr0; /* first floating point reg */
+	int fpr0;   /* first floating point reg */
 	int nfpr;
 	bits rglob; /* globally live regs (e.g., sp, fp) */
 	int nrglob;
-	int nrsave[2]; /* caller-save regs */
+	int *rsave; /* caller-save */
+	int *rclob; /* callee-save */
+	int nrsave[2];
 	bits (*retregs)(Ref, int[2]);
 	bits (*argregs)(Ref, int[2]);
 };
@@ -577,27 +579,9 @@ void fold(Fn *);
 void liveon(BSet *, Blk *, Blk *);
 void filllive(Fn *);
 
-/* abi: sysv.c */
-extern int rsave[/* NRSave */];
-extern int rclob[/* NRClob */];
-bits retregs(Ref, int[2]);
-bits argregs(Ref, int[2]);
-void abi(Fn *);
-
-/* isel.c */
-void isel_x64(Fn *);
-
 /* spill.c */
 void fillcost(Fn *);
 void spill(Fn *);
 
 /* rega.c */
 void rega(Fn *);
-
-/* emit.c */
-extern char *locprefix_x64;
-extern char *symprefix_x64;
-void emitfn_x64(Fn *, FILE *);
-void emitdat_x64(Dat *, FILE *);
-int stashfp_x64(int64_t, int);
-void emitfin_x64(FILE *);
