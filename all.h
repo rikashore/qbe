@@ -42,10 +42,11 @@ enum {
 struct Target {
 	int gpr0; /* first general purpose reg */
 	int ngpr;
-	int fpr0; /* first floating point ret */
+	int fpr0; /* first floating point reg */
 	int nfpr;
-	bits rglob; /* globally live regs (sp, fp) */
+	bits rglob; /* globally live regs (e.g., sp, fp) */
 	int nrglob;
+	int nrsave[2]; /* caller-save regs */
 	bits (*retregs)(Ref, int[2]);
 	bits (*argregs)(Ref, int[2]);
 };

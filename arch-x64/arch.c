@@ -7,6 +7,7 @@ Target Tx64 = {
 	.nfpr = XMM14 - XMM0 + 1, /* XMM15 is reserved */
 	.rglob = BIT(RBP) | BIT(RSP),
 	.nrglob = 2, /* RBP and RSP */
+	.nrsave = {NISave, NFSave},
 	.retregs = retregs,
 	.argregs = argregs,
 };

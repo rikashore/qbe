@@ -122,15 +122,21 @@ Again:
 		for (i=&b->ins[b->nins]; i!=b->ins;) {
 			if ((--i)->op == Ocall && rtype(i->arg[1]) == RCall) {
 				b->in->t[0] &= ~T.retregs(i->arg[1], m);
-				for (k=0; k<2; k++)
+				for (k=0; k<2; k++) {
 					nlv[k] -= m[k];
-				if (nlv[0] + NISave > b->nlive[0])
-					b->nlive[0] = nlv[0] + NISave;
-				if (nlv[1] + NFSave > b->nlive[1])
-					b->nlive[1] = nlv[1] + NFSave;
+					/* caller-save registers are used
+					 * by the callee, in that sense,
+					 * right in the middle of the call,
+					 * they are live: */
+					nlv[k] += T.nrsave[k];
+					if (nlv[k] > b->nlive[k])
+						b->nlive[k] = nlv[k];
+				}
 				b->in->t[0] |= T.argregs(i->arg[1], m);
-				for (k=0; k<2; k++)
+				for (k=0; k<2; k++) {
+					nlv[k] -= T.nrsave[k];
 					nlv[k] += m[k];
+				}
 			}
 			if (!req(i->to, R)) {
 				assert(rtype(i->to) == RTmp);
