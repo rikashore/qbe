@@ -2,3 +2,10 @@
 Introduce Target struct, try to make live.c
 architecture independent, try to understand
 arm abi.
+
+2017/3/6 - (0945 to 1050)
+Finish making live.c arch-independent.
+Spill.c was also easy, remains to see how
+opdesc should be modified.  Architecture
+dependent pass declarations moved into
+arch-x64/arch.h.
