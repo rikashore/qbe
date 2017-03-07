@@ -47,7 +47,6 @@ struct Target {
 	bits rglob; /* globally live regs (e.g., sp, fp) */
 	int nrglob;
 	int *rsave; /* caller-save */
-	int *rclob; /* callee-save */
 	int nrsave[2];
 	bits (*retregs)(Ref, int[2]);
 	bits (*argregs)(Ref, int[2]);

@@ -1,3 +1,4 @@
+#define ARCH_X64 /* fixme */
 #include "all.h"
 #include "config.h"
 #include <ctype.h>
@@ -35,7 +36,7 @@ data(Dat *d)
 		fputs("/* end data */\n\n", outf);
 		freeall();
 	}
-	emitdat_x64(d, outf);
+	x_emitdat(d, outf);
 }
 
 static void
@@ -64,10 +65,10 @@ func(Fn *fn)
 	copy(fn);
 	filluse(fn);
 	fold(fn);
-	x64_sysv_abi(fn);
+	xv_abi(fn);
 	fillpreds(fn);
 	filluse(fn);
-	isel_x64(fn);
+	x_isel(fn);
 	fillrpo(fn);
 	filllive(fn);
 	fillcost(fn);
@@ -85,7 +86,7 @@ func(Fn *fn)
 		} else
 			fn->rpo[n]->link = fn->rpo[n+1];
 	if (!dbg) {
-		emitfn_x64(fn, outf);
+		x_emitfn(fn, outf);
 		fprintf(outf, "/* end function %s */\n\n", fn->name);
 	} else
 		fprintf(stderr, "\n");
@@ -100,7 +101,7 @@ main(int ac, char *av[])
 	int c, asm;
 
 	asm = Defaultasm;
-	T = Tx64;
+	T = T_x64_sysv;
 	outf = stdout;
 	while ((c = getopt(ac, av, "hd:o:G:")) != -1)
 		switch (c) {
@@ -137,12 +138,12 @@ main(int ac, char *av[])
 
 	switch (asm) {
 	case Gaself:
-		locprefix_x64 = ".L";
-		symprefix_x64 = "";
+		x_locprefix = ".L";
+		x_symprefix = "";
 		break;
 	case Gasmacho:
-		locprefix_x64 = "L";
-		symprefix_x64 = "_";
+		x_locprefix = "L";
+		x_symprefix = "_";
 		break;
 	}
 
@@ -162,7 +163,7 @@ main(int ac, char *av[])
 	} while (++optind < ac);
 
 	if (!dbg)
-		emitfin_x64(outf);
+		x_emitfin(outf);
 
 	exit(0);
 }

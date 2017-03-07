@@ -1,6 +1,7 @@
+#define ARCH_X64
 #include "../all.h"
 
-char *locprefix_x64, *symprefix_x64;
+char *x_locprefix, *x_symprefix;
 
 enum {
 	SLong = 0,
@@ -153,9 +154,9 @@ emitcon(Con *con, FILE *f)
 	switch (con->type) {
 	case CAddr:
 		if (con->local)
-			fprintf(f, "%s%s", locprefix_x64, con->label);
+			fprintf(f, "%s%s", x_locprefix, con->label);
 		else
-			fprintf(f, "%s%s", symprefix_x64, con->label);
+			fprintf(f, "%s%s", x_symprefix, con->label);
 		if (con->bits.i)
 			fprintf(f, "%+"PRId64, con->bits.i);
 		break;
@@ -478,15 +479,15 @@ framesz(Fn *fn)
 	int i, o, f;
 
 	/* specific to NAlign == 3 */
-	for (i=0, o=0; i<NRClob; i++)
-		o ^= 1 & (fn->reg >> rclob[i]);
+	for (i=0, o=0; i<NCLR; i++)
+		o ^= 1 & (fn->reg >> xv_rclob[i]);
 	f = fn->slot;
 	f = (f + 3) & -4;
 	return 4*f + 8*o + 176*fn->vararg;
 }
 
 void
-emitfn_x64(Fn *fn, FILE *f)
+x_emitfn(Fn *fn, FILE *f)
 {
 	static char *ctoa[] = {
 		[ICeq]  = "z",
@@ -509,24 +510,24 @@ emitfn_x64(Fn *fn, FILE *f)
 
 	fprintf(f, ".text\n");
 	if (fn->export)
-		fprintf(f, ".globl %s%s\n", symprefix_x64, fn->name);
+		fprintf(f, ".globl %s%s\n", x_symprefix, fn->name);
 	fprintf(f,
 		"%s%s:\n"
 		"\tpushq %%rbp\n"
 		"\tmovq %%rsp, %%rbp\n",
-		symprefix_x64, fn->name
+		x_symprefix, fn->name
 	);
 	fs = framesz(fn);
 	if (fs)
 		fprintf(f, "\tsub $%d, %%rsp\n", fs);
 	if (fn->vararg) {
 		o = -176;
-		for (r=rsave; r-rsave<6; ++r, o+=8)
+		for (r=xv_rsave; r<&xv_rsave[6]; r++, o+=8)
 			fprintf(f, "\tmovq %%%s, %d(%%rbp)\n", rname[*r][0], o);
 		for (n=0; n<8; ++n, o+=16)
 			fprintf(f, "\tmovaps %%xmm%d, %d(%%rbp)\n", n, o);
 	}
-	for (r=rclob; r-rclob < NRClob; r++)
+	for (r=xv_rclob; r<&xv_rclob[NCLR]; r++)
 		if (fn->reg & BIT(*r)) {
 			itmp.arg[0] = TMP(*r);
 			emitf("pushq %L0", &itmp, fn, f);
@@ -534,13 +535,13 @@ emitfn_x64(Fn *fn, FILE *f)
 
 	for (lbl=0, b=fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
-			fprintf(f, "%sbb%d:\n", locprefix_x64, id0+b->id);
+			fprintf(f, "%sbb%d:\n", x_locprefix, id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
 			emitins(*i, fn, f);
 		lbl = 1;
 		switch (b->jmp.type) {
 		case Jret0:
-			for (r=&rclob[NRClob]; r>rclob;)
+			for (r=&xv_rclob[NCLR]; r>xv_rclob;)
 				if (fn->reg & BIT(*--r)) {
 					itmp.arg[0] = TMP(*r);
 					emitf("popq %L0", &itmp, fn, f);
@@ -554,7 +555,7 @@ emitfn_x64(Fn *fn, FILE *f)
 		Jmp:
 			if (b->s1 != b->link)
 				fprintf(f, "\tjmp %sbb%d\n",
-					locprefix_x64, id0+b->s1->id);
+					x_locprefix, id0+b->s1->id);
 			else
 				lbl = 0;
 			break;
@@ -568,7 +569,7 @@ emitfn_x64(Fn *fn, FILE *f)
 				} else
 					c = cneg(c);
 				fprintf(f, "\tj%s %sbb%d\n", ctoa[c],
-					locprefix_x64, id0+b->s2->id);
+					x_locprefix, id0+b->s2->id);
 				goto Jmp;
 			}
 			die("unhandled jump %d", b->jmp.type);
@@ -578,7 +579,7 @@ emitfn_x64(Fn *fn, FILE *f)
 }
 
 void
-emitdat_x64(Dat *d, FILE *f)
+x_emitdat(Dat *d, FILE *f)
 {
 	static int align;
 	static char *dtoa[] = {
@@ -600,8 +601,8 @@ emitdat_x64(Dat *d, FILE *f)
 		if (!align)
 			fprintf(f, ".align 8\n");
 		if (d->export)
-			fprintf(f, ".globl %s%s\n", symprefix_x64, d->u.str);
-		fprintf(f, "%s%s:\n", symprefix_x64, d->u.str);
+			fprintf(f, ".globl %s%s\n", x_symprefix, d->u.str);
+		fprintf(f, "%s%s:\n", x_symprefix, d->u.str);
 		break;
 	case DZ:
 		fprintf(f, "\t.fill %"PRId64",1,0\n", d->u.num);
@@ -643,7 +644,7 @@ struct FBits {
 static FBits *stash;
 
 int
-stashfp_x64(int64_t n, int w)
+x_stashfp(int64_t n, int w)
 {
 	FBits **pb, *b;
 	int i;
@@ -662,7 +663,7 @@ stashfp_x64(int64_t n, int w)
 }
 
 void
-emitfin_x64(FILE *f)
+x_emitfin(FILE *f)
 {
 	FBits *b;
 	int i;
@@ -677,7 +678,7 @@ emitfin_x64(FILE *f)
 				"%sfp%d:\n"
 				"\t.quad %"PRId64
 				" /* %f */\n",
-				locprefix_x64, i, b->bits.n,
+				x_locprefix, i, b->bits.n,
 				b->bits.d
 			);
 	for (b=stash, i=0; b; b=b->link, i++)
@@ -686,7 +687,7 @@ emitfin_x64(FILE *f)
 				"%sfp%d:\n"
 				"\t.long %"PRId64
 				" /* %lf */\n",
-				locprefix_x64, i, b->bits.n & 0xffffffff,
+				x_locprefix, i, b->bits.n & 0xffffffff,
 				b->bits.f
 			);
 	while ((b=stash)) {

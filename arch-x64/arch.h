@@ -1,4 +1,4 @@
-#ifndef PORTING
+#ifdef ARCH_X64
 
 enum X64Reg {
 	RAX = RXX+1, /* caller-save */
@@ -37,43 +37,36 @@ enum X64Reg {
 	XMM13,
 	XMM14,
 	XMM15,
+
+	NFPR = XMM14 - XMM0 + 1, /* reserve XMM15 */
+	NGPR = RSP - RAX + 1,
+	NGPS = R11 - RAX + 1,
+	NFPS = NFPR,
+	NCLR = R15 - RBX + 1,
 };
 
 MAKESURE(X64Reg_not_tmp, XMM15 < (int)Tmp0);
 
-enum {
-	NRGlob = 2, // ok
-	NIReg = R15 - RAX + 1 + NRGlob, // ok
-	NFReg = XMM14 - XMM0 + 1, /* XMM15 is reserved */ // ok
-	NISave = R11 - RAX + 1,
-	NFSave = NFReg,
-	NRSave = NISave + NFSave,
-	NRClob = R15 - RBX + 1,
-};
-
-#endif
-
-/* arch.c */
-extern int x64_sysv_rsave[];
-extern int x64_sysv_rclob[];
-extern Target Tx64;
-
 /* abi: sysv.c */
-#ifndef PORTING
-extern int rsave[/* NRSave */];
-extern int rclob[/* NRClob */];
-bits retregs(Ref, int[2]);
-bits argregs(Ref, int[2]);
-#endif
-void x64_sysv_abi(Fn *);
+bits xv_retregs(Ref, int[2]);
+bits xv_argregs(Ref, int[2]);
+void xv_abi(Fn *);
 
 /* isel.c */
-void isel_x64(Fn *);
+void x_isel(Fn *);
 
 /* emit.c */
-extern char *locprefix_x64;
-extern char *symprefix_x64;
-void emitfn_x64(Fn *, FILE *);
-void emitdat_x64(Dat *, FILE *);
-int stashfp_x64(int64_t, int);
-void emitfin_x64(FILE *);
+extern char *x_locprefix;
+extern char *x_symprefix;
+void x_emitfn(Fn *, FILE *);
+void x_emitdat(Dat *, FILE *);
+int x_stashfp(int64_t, int);
+void x_emitfin(FILE *);
+
+/* arch.c */
+extern int xv_rsave[];
+extern int xv_rclob[];
+
+#endif
+
+extern Target T_x64_sysv;

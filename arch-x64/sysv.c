@@ -1,3 +1,4 @@
+#define ARCH_X64
 #include "../all.h"
 
 typedef struct AClass AClass;
@@ -226,6 +227,18 @@ argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
 	return ((6-nint) << 4) | ((8-nsse) << 8);
 }
 
+int xv_rsave[] = {
+	RDI, RSI, RDX, RCX, R8, R9, R10, R11, RAX,
+	XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+	XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, -1
+};
+int xv_rclob[] = {RBX, R12, R13, R14, R15, -1};
+
+MAKESURE(sysv_arrays_ok,
+	sizeof xv_rsave == (NGPS+NFPS+1) * sizeof(int) &&
+	sizeof xv_rclob == (NCLR+1) * sizeof(int)
+);
+
 /* layout of call's second argument (RCall)
  *
  *  29     12    8    4  3  0
@@ -238,7 +251,7 @@ argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
  */
 
 bits
-retregs(Ref r, int p[2])
+xv_retregs(Ref r, int p[2])
 {
 	bits b;
 	int ni, nf;
@@ -263,7 +276,7 @@ retregs(Ref r, int p[2])
 }
 
 bits
-argregs(Ref r, int p[2])
+xv_argregs(Ref r, int p[2])
 {
 	bits b;
 	int j, ni, nf, ra;
@@ -274,7 +287,7 @@ argregs(Ref r, int p[2])
 	nf = (r.val >> 8) & 15;
 	ra = (r.val >> 12) & 1;
 	for (j=0; j<ni; j++)
-		b |= BIT(rsave[j]);
+		b |= BIT(xv_rsave[j]);
 	for (j=0; j<nf; j++)
 		b |= BIT(XMM0+j);
 	if (p) {
@@ -288,7 +301,7 @@ static Ref
 rarg(int ty, int *ni, int *ns)
 {
 	if (KBASE(ty) == 0)
-		return TMP(rsave[(*ni)++]);
+		return TMP(xv_rsave[(*ni)++]);
 	else
 		return TMP(XMM0 + (*ns)++);
 }
@@ -639,7 +652,7 @@ selvastart(Fn *fn, int fa, Ref ap)
 }
 
 void
-x64_sysv_abi(Fn *fn)
+xv_abi(Fn *fn)
 {
 	Blk *b;
 	Ins *i, *i0, *ip;

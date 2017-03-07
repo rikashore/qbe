@@ -866,7 +866,10 @@ parsefn(int export)
 	curf->tmp = vnew(curf->ntmp, sizeof curf->tmp[0], Pfn);
 	curf->con = vnew(curf->ncon, sizeof curf->con[0], Pfn);
 	for (i=0; i<Tmp0; ++i)
-		newtmp(0, i < XMM0 ? Kl : Kd, curf);
+		if (T.fpr0 <= i && i < T.fpr0 + T.nfpr)
+			newtmp(0, Kd, curf);
+		else
+			newtmp(0, Kl, curf);
 	curf->con[0].type = CBits;
 	curf->export = export;
 	blink = &curf->start;
