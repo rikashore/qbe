@@ -9,3 +9,22 @@ Spill.c was also easy, remains to see how
 opdesc should be modified.  Architecture
 dependent pass declarations moved into
 arch-x64/arch.h.
+
+2017/3/6 - (2130 to 2240)
+Make rega.c arch-independent.  That was
+easy.  Put a little more work in the .h
+organization.  Change some naming
+conventions, pure x64 functions have
+prefix x_, and x64_sysv functions have
+prefix xv_.
+
+2017/3/7 - (9000 to 1030)
+Do not include architecture specific
+headers in all.h.  More reading on ARM
+assembly.  Compiled a mapping from qbe
+condition codes to ARM.  I think I will
+change enum Jmp and replace x64-specific
+jumps with normal qbe int/float
+comparison codes.  The mapping will be
+done by the emitter.  Similarly, I
+might get rid of Oxset.
