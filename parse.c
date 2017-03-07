@@ -68,22 +68,22 @@ OpDesc opdesc[NOp] = {
 	[Oargc]   = { "argc",     0, {A(e,x,e,e), A(e,l,e,e)}, 0, 0, 0 },
 	[Ocall]   = { "call",     0, {A(m,m,m,m), A(x,x,x,x)}, 0, 0, 0 },
 	[Ovacall] = { "vacall",   0, {A(m,m,m,m), A(x,x,x,x)}, 0, 0, 0 },
-	[Oxsetnp] = { "xsetnp",   0, {A(x,x,e,e), A(x,x,e,e)}, 0, 0, 0 },
-	[Oxsetp]  = { "xsetp",    0, {A(x,x,e,e), A(x,x,e,e)}, 0, 0, 0 },
 	[Oalloc]   = { "alloc4",  1, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
 	[Oalloc+1] = { "alloc8",  1, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
 	[Oalloc+2] = { "alloc16", 1, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
 	[Ovaarg]   = { "vaarg",   0, {A(m,m,m,m), A(x,x,x,x)}, 0, 0, 0 },
 	[Ovastart] = { "vastart", 0, {A(m,e,e,e), A(x,e,e,e)}, 0, 0, 0 },
 #define X(c) \
-	[Ocmpw+IC##c] = { "c"    #c "w", 0, {A(w,w,e,e), A(w,w,e,e)}, 1, 0, 1 }, \
-	[Ocmpl+IC##c] = { "c"    #c "l", 0, {A(l,l,e,e), A(l,l,e,e)}, 1, 0, 1 }, \
-	[Oxset+IC##c] = { "xset" #c,     0, {A(x,x,e,e), A(x,x,e,e)}, 0, 1, 0 },
+	[Ocmpw+Ci##c]  = { "c"   #c "w", 0, {A(w,w,e,e), A(w,w,e,e)}, 1, 0, 1 }, \
+	[Ocmpl+Ci##c]  = { "c"   #c "l", 0, {A(l,l,e,e), A(l,l,e,e)}, 1, 0, 1 }, \
+	[Osetcc+Ci##c] = { "icc" #c,     0, {A(x,x,e,e), A(x,x,e,e)}, 0, 1, 0 },
 	ICMPS(X)
 #undef X
 #define X(c) \
-	[Ocmps+FC##c] = { "c"    #c "s", 0, {A(s,s,e,e), A(s,s,e,e)}, 1, 0, 1 }, \
-	[Ocmpd+FC##c] = { "c"    #c "d", 0, {A(d,d,e,e), A(d,d,e,e)}, 1, 0, 1 },
+	[Ocmps+Cf##c]  = { "c"   #c "s", 0, {A(s,s,e,e), A(s,s,e,e)}, 1, 0, 1 }, \
+	[Ocmpd+Cf##c]  = { "c"   #c "d", 0, {A(d,d,e,e), A(d,d,e,e)}, 1, 0, 1 }, \
+	[Osetcc+NCmpI+Cf##c] = \
+	                 { "fcc" #c,     0, {A(x,x,e,e), A(x,x,e,e)}, 0, 1, 0 },
 	FCMPS(X)
 #undef X
 
@@ -1239,10 +1239,11 @@ printfn(Fn *fn, FILE *f)
 		[Jrets]     = "rets",
 		[Jretd]     = "retd",
 		[Jjnz]      = "jnz",
-		[Jxjnp]     = "xjnp",
-		[Jxjp]      = "xjp",
-	#define X(c) [Jxjc+IC##c] = "xj" #c,
+	#define X(c) [Jjcc+Ci##c] = "jicc" #c,
 		ICMPS(X)
+	#undef X
+	#define X(c) [Jjcc+NCmpI+Cf##c] = "jfcc" #c,
+		FCMPS(X)
 	#undef X
 	};
 	static char prcls[NOp] = {

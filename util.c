@@ -165,6 +165,42 @@ vgrow(void *vp, ulong len)
 	*(Vec **)vp = v1;
 }
 
+static int cmptab[][2] ={
+                     /* negation    swap */
+	[Ciule]      = {Ciugt,      Ciuge},
+	[Ciult]      = {Ciuge,      Ciugt},
+	[Ciugt]      = {Ciule,      Ciult},
+	[Ciuge]      = {Ciult,      Ciule},
+	[Cisle]      = {Cisgt,      Cisge},
+	[Cislt]      = {Cisge,      Cisgt},
+	[Cisgt]      = {Cisle,      Cislt},
+	[Cisge]      = {Cislt,      Cisle},
+	[Cieq]       = {Cine,       Cieq},
+	[Cine]       = {Cieq,       Cine},
+	[NCmpI+Cfle] = {NCmpI+Cfgt, NCmpI+Cfge},
+	[NCmpI+Cflt] = {NCmpI+Cfge, NCmpI+Cfgt},
+	[NCmpI+Cfgt] = {NCmpI+Cfle, NCmpI+Cflt},
+	[NCmpI+Cfge] = {NCmpI+Cflt, NCmpI+Cfle},
+	[NCmpI+Cfeq] = {NCmpI+Cfne, NCmpI+Cfeq},
+	[NCmpI+Cfne] = {NCmpI+Cfeq, NCmpI+Cfne},
+	[NCmpI+Cfo]  = {NCmpI+Cfuo, NCmpI+Cfo},
+	[NCmpI+Cfuo] = {NCmpI+Cfo,  NCmpI+Cfuo},
+};
+
+int
+cmpneg(int c)
+{
+	assert(0 <= c && c < NCmp);
+	return cmptab[c][0];
+}
+
+int
+cmpop(int c)
+{
+	assert(0 <= c && c < NCmp);
+	return cmptab[c][1];
+}
+
 int
 clsmerge(short *pk, short k)
 {

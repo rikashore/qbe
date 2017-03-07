@@ -104,7 +104,7 @@ static inline int isreg(Ref r)
 	return rtype(r) == RTmp && r.val < Tmp0;
 }
 
-enum ICmp {
+enum CmpI {
 #define ICMPS(X) \
 	X(ule)   \
 	X(ult)   \
@@ -115,38 +115,28 @@ enum ICmp {
 	X(ugt)   \
 	X(uge)   \
 	X(eq)    \
-	X(ne) /* make sure icmpop() below works! */
-
-#define X(c) IC##c,
+	X(ne)
+#define X(c) Ci##c,
 	ICMPS(X)
 #undef X
-	NICmp,
-
-	ICxnp = NICmp, /* x64 specific */
-	ICxp,
-	NXICmp
+	NCmpI,
 };
 
-static inline int icmpop(int c)
-{
-	return c >= ICeq ? c : ICuge - c;
-}
-
-enum FCmp {
+enum CmpF {
 #define FCMPS(X) \
 	X(le)    \
 	X(lt)    \
 	X(gt)    \
 	X(ge)    \
-	X(ne)    \
 	X(eq)    \
+	X(ne)    \
 	X(o)     \
 	X(uo)
-
-#define X(c) FC##c,
+#define X(c) Cf##c,
 	FCMPS(X)
 #undef X
-	NFCmp
+	NCmpF,
+	NCmp = NCmpI + NCmpF,
 };
 
 enum Class {
@@ -178,13 +168,13 @@ enum Op {
 	Oshr,
 	Oshl,
 	Ocmpw,
-	Ocmpw1 = Ocmpw + NICmp-1,
+	Ocmpw1 = Ocmpw + NCmpI-1,
 	Ocmpl,
-	Ocmpl1 = Ocmpl + NICmp-1,
+	Ocmpl1 = Ocmpl + NCmpI-1,
 	Ocmps,
-	Ocmps1 = Ocmps + NFCmp-1,
+	Ocmps1 = Ocmps + NCmpF-1,
 	Ocmpd,
-	Ocmpd1 = Ocmpd + NFCmp-1,
+	Ocmpd1 = Ocmpd + NCmpF-1,
 
 	Ostoreb,
 	Ostoreh,
@@ -243,13 +233,12 @@ enum Op {
 	Oaddr,
 	Oswap,
 	Osign,
+	Osetcc,
+	Osetcc1 = Osetcc + NCmp-1,
 	Osalloc,
 	Oxidiv,
 	Oxdiv,
 	Oxcmp,
-	Oxset,
-	Oxsetnp = Oxset + ICxnp,
-	Oxsetp  = Oxset + ICxp,
 	Oxtest,
 	NOp
 };
@@ -265,9 +254,8 @@ enum Jmp {
 #define isret(j) (Jret0 <= j && j <= Jretc)
 	Jjmp,
 	Jjnz,
-	Jxjc,
-	Jxjnp = Jxjc + ICxnp,
-	Jxjp  = Jxjc + ICxp,
+	Jjcc,
+	Jjcc1 = Jjcc + NCmp-1,
 	NJmp
 };
 
@@ -499,6 +487,8 @@ Ins *icpy(Ins *, Ins *, ulong);
 void *vnew(ulong, size_t, Pool);
 void vfree(void *);
 void vgrow(void *, ulong);
+int cmpop(int);
+int cmpneg(int);
 int clsmerge(short *, short);
 int phicls(int, Tmp *);
 Ref newtmp(char *, int, Fn *);

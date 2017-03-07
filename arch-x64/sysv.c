@@ -621,7 +621,7 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	b->s1 = breg;
 	b->s2 = bstk;
 	c = getcon(isint ? 48 : 176, fn);
-	emit(Ocmpw+ICult, Kw, r1, nr, c);
+	emit(Ocmpw+Ciult, Kw, r1, nr, c);
 	emit(Oloadsw, Kl, nr, r0, R);
 	emit(Oadd, Kl, r0, ap, isint ? CON_Z : c4);
 }

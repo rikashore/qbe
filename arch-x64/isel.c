@@ -29,22 +29,6 @@ struct ANum {
 static void amatch(Addr *, Ref, ANum *, Fn *, int);
 
 static int
-fcmptoi(int fc)
-{
-	switch (fc) {
-	default:   die("invalid fp comparison %d", fc);
-	case FCle: return ICule;
-	case FClt: return ICult;
-	case FCgt: return ICugt;
-	case FCge: return ICuge;
-	case FCne: return ICne;
-	case FCeq: return ICeq;
-	case FCo:  return ICxnp;
-	case FCuo: return ICxp;
-	}
-}
-
-static int
 iscmp(int op, int *pk, int *pc)
 {
 	if (Ocmpw <= op && op <= Ocmpw1) {
@@ -56,11 +40,11 @@ iscmp(int op, int *pk, int *pc)
 		*pk = Kl;
 	}
 	else if (Ocmps <= op && op <= Ocmps1) {
-		*pc = fcmptoi(op - Ocmps);
+		*pc = NCmpI + op - Ocmps;
 		*pk = Ks;
 	}
 	else if (Ocmpd <= op && op <= Ocmpd1) {
-		*pc = fcmptoi(op - Ocmpd);
+		*pc = NCmpI + op - Ocmpd;
 		*pk = Kd;
 	}
 	else
@@ -350,10 +334,10 @@ Emit:
 		if (isload(i.op))
 			goto case_Oload;
 		if (iscmp(i.op, &kc, &x)) {
-			emit(Oxset+x, k, i.to, R, R);
+			emit(Osetcc+x, k, i.to, R, R);
 			i1 = curi;
 			if (selcmp(i.arg, kc, fn))
-				i1->op = Oxset + icmpop(x);
+				i1->op = Osetcc + cmpop(x);
 			break;
 		}
 		die("unknown instruction %s", opdesc[i.op].name);
@@ -403,22 +387,22 @@ seljmp(Blk *b, Fn *fn)
 	fi = flagi(b->ins, &b->ins[b->nins]);
 	if (!fi || !req(fi->to, r)) {
 		selcmp((Ref[2]){r, CON_Z}, Kw, fn); /* todo, long jnz */
-		b->jmp.type = Jxjc + ICne;
+		b->jmp.type = Jjcc + Cine;
 	}
 	else if (iscmp(fi->op, &k, &c)) {
 		if (t->nuse == 1) {
 			if (selcmp(fi->arg, k, fn))
-				c = icmpop(c);
+				c = cmpop(c);
 			*fi = (Ins){.op = Onop};
 		}
-		b->jmp.type = Jxjc + c;
+		b->jmp.type = Jjcc + c;
 	}
 	else if (fi->op == Oand && t->nuse == 1
 	     && (rtype(fi->arg[0]) == RTmp ||
 	         rtype(fi->arg[1]) == RTmp)) {
 		fi->op = Oxtest;
 		fi->to = R;
-		b->jmp.type = Jxjc + ICne;
+		b->jmp.type = Jjcc + Cine;
 		if (rtype(fi->arg[1]) == RCon) {
 			r = fi->arg[1];
 			fi->arg[1] = fi->arg[0];
@@ -432,7 +416,7 @@ seljmp(Blk *b, Fn *fn)
 		 */
 		if (t->nuse == 1)
 			emit(Ocopy, Kw, R, r, R);
-		b->jmp.type = Jxjc + ICne;
+		b->jmp.type = Jjcc + Cine;
 	}
 }
 

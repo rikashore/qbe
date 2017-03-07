@@ -28,3 +28,7 @@ jumps with normal qbe int/float
 comparison codes.  The mapping will be
 done by the emitter.  Similarly, I
 might get rid of Oxset.
+
+2017/3/7 - (1630 to 1800)
+Got rid of x64-specific comparisons in
+most of qbe.

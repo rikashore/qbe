@@ -3,6 +3,26 @@
 
 char *x_locprefix, *x_symprefix;
 
+#define CMP(X) \
+	X(Ciule,"be") \
+	X(Ciult,"b") \
+	X(Cisle,"le") \
+	X(Cislt,"l") \
+	X(Cisgt,"g") \
+	X(Cisge,"ge") \
+	X(Ciugt,"a") \
+	X(Ciuge,"ae") \
+	X(Cieq,"z") \
+	X(Cine,"nz") \
+	X(NCmpI+Cfle,"be") \
+	X(NCmpI+Cflt,"b") \
+	X(NCmpI+Cfgt,"a") \
+	X(NCmpI+Cfge,"ae") \
+	X(NCmpI+Cfeq,"z") \
+	X(NCmpI+Cfne,"nz") \
+	X(NCmpI+Cfo,"np") \
+	X(NCmpI+Cfuo,"p")
+
 enum {
 	SLong = 0,
 	SWord = 1,
@@ -96,18 +116,10 @@ static struct {
 	{ Oxcmp,   Kd, "comisd %D0, %D1" },
 	{ Oxcmp,   Ki, "cmp%k %0, %1" },
 	{ Oxtest,  Ki, "test%k %0, %1" },
-	{ Oxset+ICule, Ki, "setbe %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICult, Ki, "setb %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICsle, Ki, "setle %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICslt, Ki, "setl %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICsgt, Ki, "setg %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICsge, Ki, "setge %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICugt, Ki, "seta %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICuge, Ki, "setae %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICeq,  Ki, "setz %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICne,  Ki, "setnz %B=\n\tmovzb%k %B=, %=" },
-	{ Oxset+ICxnp, Ki, "setnp %B=\n\tmovsb%k %B=, %=" },
-	{ Oxset+ICxp,  Ki, "setp %B=\n\tmovsb%k %B=, %=" },
+#define X(c, s) \
+	{ Osetcc+c, Ki, "set" s " %B=\n\tmovzb%k %B=, %=" },
+	CMP(X)
+#undef X
 	{ NOp, 0, 0 }
 };
 
@@ -454,26 +466,6 @@ emitins(Ins i, Fn *fn, FILE *f)
 }
 
 static int
-cneg(int cmp)
-{
-	switch (cmp) {
-	default:    die("invalid int comparison %d", cmp);
-	case ICule: return ICugt;
-	case ICult: return ICuge;
-	case ICsle: return ICsgt;
-	case ICslt: return ICsge;
-	case ICsgt: return ICsle;
-	case ICsge: return ICslt;
-	case ICugt: return ICule;
-	case ICuge: return ICult;
-	case ICeq:  return ICne;
-	case ICne:  return ICeq;
-	case ICxnp: return ICxp;
-	case ICxp:  return ICxnp;
-	}
-}
-
-static int
 framesz(Fn *fn)
 {
 	int i, o, f;
@@ -490,18 +482,9 @@ void
 x_emitfn(Fn *fn, FILE *f)
 {
 	static char *ctoa[] = {
-		[ICeq]  = "z",
-		[ICule] = "be",
-		[ICult] = "b",
-		[ICsle] = "le",
-		[ICslt] = "l",
-		[ICsgt] = "g",
-		[ICsge] = "ge",
-		[ICugt] = "a",
-		[ICuge] = "ae",
-		[ICne]  = "nz",
-		[ICxnp] = "np",
-		[ICxp]  = "p"
+	#define X(c, s) [c] = s,
+		CMP(X)
+	#undef X
 	};
 	static int id0;
 	Blk *b, *s;
@@ -560,14 +543,14 @@ x_emitfn(Fn *fn, FILE *f)
 				lbl = 0;
 			break;
 		default:
-			c = b->jmp.type - Jxjc;
-			if (0 <= c && c <= NXICmp) {
+			c = b->jmp.type - Jjcc;
+			if (0 <= c && c <= NCmp) {
 				if (b->link == b->s2) {
 					s = b->s1;
 					b->s1 = b->s2;
 					b->s2 = s;
 				} else
-					c = cneg(c);
+					c = cmpneg(c);
 				fprintf(f, "\tj%s %sbb%d\n", ctoa[c],
 					x_locprefix, id0+b->s2->id);
 				goto Jmp;

@@ -397,42 +397,42 @@ foldint(Con *res, int op, int w, Con *cl, Con *cr)
 			} else
 				op -= Ocmpl - Ocmpw;
 			switch (op - Ocmpw) {
-			case ICule: x = l.u <= r.u; break;
-			case ICult: x = l.u < r.u;  break;
-			case ICsle: x = l.s <= r.s; break;
-			case ICslt: x = l.s < r.s;  break;
-			case ICsgt: x = l.s > r.s;  break;
-			case ICsge: x = l.s >= r.s; break;
-			case ICugt: x = l.u > r.u;  break;
-			case ICuge: x = l.u >= r.u; break;
-			case ICeq:  x = l.u == r.u; break;
-			case ICne:  x = l.u != r.u; break;
+			case Ciule: x = l.u <= r.u; break;
+			case Ciult: x = l.u < r.u;  break;
+			case Cisle: x = l.s <= r.s; break;
+			case Cislt: x = l.s < r.s;  break;
+			case Cisgt: x = l.s > r.s;  break;
+			case Cisge: x = l.s >= r.s; break;
+			case Ciugt: x = l.u > r.u;  break;
+			case Ciuge: x = l.u >= r.u; break;
+			case Cieq:  x = l.u == r.u; break;
+			case Cine:  x = l.u != r.u; break;
 			default: die("unreachable");
 			}
 		}
 		else if (Ocmps <= op && op <= Ocmps1) {
 			switch (op - Ocmps) {
-			case FCle: x = l.fs <= r.fs; break;
-			case FClt: x = l.fs < r.fs;  break;
-			case FCgt: x = l.fs > r.fs;  break;
-			case FCge: x = l.fs >= r.fs; break;
-			case FCne: x = l.fs != r.fs; break;
-			case FCeq: x = l.fs == r.fs; break;
-			case FCo: x = l.fs < r.fs || l.fs >= r.fs; break;
-			case FCuo: x = !(l.fs < r.fs || l.fs >= r.fs); break;
+			case Cfle: x = l.fs <= r.fs; break;
+			case Cflt: x = l.fs < r.fs;  break;
+			case Cfgt: x = l.fs > r.fs;  break;
+			case Cfge: x = l.fs >= r.fs; break;
+			case Cfne: x = l.fs != r.fs; break;
+			case Cfeq: x = l.fs == r.fs; break;
+			case Cfo: x = l.fs < r.fs || l.fs >= r.fs; break;
+			case Cfuo: x = !(l.fs < r.fs || l.fs >= r.fs); break;
 			default: die("unreachable");
 			}
 		}
 		else if (Ocmpd <= op && op <= Ocmpd1) {
 			switch (op - Ocmpd) {
-			case FCle: x = l.fd <= r.fd; break;
-			case FClt: x = l.fd < r.fd;  break;
-			case FCgt: x = l.fd > r.fd;  break;
-			case FCge: x = l.fd >= r.fd; break;
-			case FCne: x = l.fd != r.fd; break;
-			case FCeq: x = l.fd == r.fd; break;
-			case FCo: x = l.fd < r.fd || l.fd >= r.fd; break;
-			case FCuo: x = !(l.fd < r.fd || l.fd >= r.fd); break;
+			case Cfle: x = l.fd <= r.fd; break;
+			case Cflt: x = l.fd < r.fd;  break;
+			case Cfgt: x = l.fd > r.fd;  break;
+			case Cfge: x = l.fd >= r.fd; break;
+			case Cfne: x = l.fd != r.fd; break;
+			case Cfeq: x = l.fd == r.fd; break;
+			case Cfo: x = l.fd < r.fd || l.fd >= r.fd; break;
+			case Cfuo: x = !(l.fd < r.fd || l.fd >= r.fd); break;
 			default: die("unreachable");
 			}
 		}
