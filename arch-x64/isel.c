@@ -1,5 +1,5 @@
-#define ARCH_X64
 #include "../all.h"
+#include "x64.h"
 #include <limits.h>
 
 /* For x86_64, do the following:

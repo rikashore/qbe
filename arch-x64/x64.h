@@ -1,6 +1,4 @@
-#ifdef ARCH_X64
-
-enum X64Reg {
+enum Reg {
 	RAX = RXX+1, /* caller-save */
 	RCX,
 	RDX,
@@ -19,7 +17,6 @@ enum X64Reg {
 
 	RBP, /* globally live */
 	RSP,
-#define RGLOB (BIT(RBP)|BIT(RSP))
 
 	XMM0, /* sse */
 	XMM1,
@@ -45,9 +42,11 @@ enum X64Reg {
 	NCLR = R15 - RBX + 1,
 };
 
-MAKESURE(X64Reg_not_tmp, XMM15 < (int)Tmp0);
+MAKESURE(Reg_not_tmp, XMM15 < (int)Tmp0);
 
-/* abi: sysv.c */
+/* sysv.c (abi) */
+extern int xv_rsave[];
+extern int xv_rclob[];
 bits xv_retregs(Ref, int[2]);
 bits xv_argregs(Ref, int[2]);
 void xv_abi(Fn *);
@@ -62,11 +61,3 @@ void x_emitfn(Fn *, FILE *);
 void x_emitdat(Dat *, FILE *);
 int x_stashfp(int64_t, int);
 void x_emitfin(FILE *);
-
-/* arch.c */
-extern int xv_rsave[];
-extern int xv_rclob[];
-
-#endif
-
-extern Target T_x64_sysv;

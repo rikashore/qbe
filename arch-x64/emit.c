@@ -1,5 +1,5 @@
-#define ARCH_X64
 #include "../all.h"
+#include "x64.h"
 
 char *x_locprefix, *x_symprefix;
 

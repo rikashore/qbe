@@ -473,7 +473,8 @@ struct Dat {
 	char export;
 };
 
-#include "arch-x64/arch.h"
+/* available targets */
+extern Target T_x64_sysv;
 
 /* main.c */
 extern Target T;

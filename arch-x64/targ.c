@@ -1,5 +1,5 @@
-#define ARCH_X64
 #include "../all.h"
+#include "x64.h"
 
 Target T_x64_sysv = {
 	.gpr0 = RAX,

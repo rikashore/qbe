@@ -1,5 +1,5 @@
-#define ARCH_X64 /* fixme */
 #include "all.h"
+#include "arch-x64/x64.h" /* fixme */
 #include "config.h"
 #include <ctype.h>
 #include <getopt.h>

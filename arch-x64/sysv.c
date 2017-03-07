@@ -1,5 +1,5 @@
-#define ARCH_X64
 #include "../all.h"
+#include "x64.h"
 
 typedef struct AClass AClass;
 typedef struct RAlloc RAlloc;

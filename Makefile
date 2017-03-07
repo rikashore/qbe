@@ -3,10 +3,12 @@ BIN = qbe
 V = @
 OBJDIR = obj
 
-SRC = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c fold.c \
-      live.c spill.c rega.c \
-      arch-x64/arch.c arch-x64/sysv.c arch-x64/isel.c arch-x64/emit.c
-OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
+SRC    = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c fold.c \
+         live.c spill.c rega.c
+X64SRC = arch-x64/targ.c arch-x64/sysv.c arch-x64/isel.c arch-x64/emit.c
+
+X64OBJ = $(X64SRC:%.c=$(OBJDIR)/%.o)
+OBJ = $(SRC:%.c=$(OBJDIR)/%.o) $(SHROBJ) $(X64OBJ)
 
 CFLAGS += -Wall -Wextra -std=c99 -g -pedantic
 
@@ -23,8 +25,9 @@ $(OBJDIR)/timestamp:
 	@mkdir -p $(OBJDIR)/arch-x64
 	@touch $@
 
-$(OBJ): all.h arch-x64/arch.h
-obj/main.o: config.h
+$(OBJ): all.h
+$(X64OBJ): arch-x64/x64.h
+obj/main.o: config.h arch-x64/x64.h # fixme
 
 config.h:
 	@case `uname` in                                 \
