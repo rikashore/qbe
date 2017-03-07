@@ -166,7 +166,7 @@ vgrow(void *vp, ulong len)
 }
 
 static int cmptab[][2] ={
-                     /* negation    swap */
+	             /* negation    swap */
 	[Ciule]      = {Ciugt,      Ciuge},
 	[Ciult]      = {Ciuge,      Ciugt},
 	[Ciugt]      = {Ciule,      Ciult},
