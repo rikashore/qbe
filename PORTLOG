@@ -32,3 +32,11 @@ might get rid of Oxset.
 2017/3/7 - (1630 to 1800)
 Got rid of x64-specific comparisons in
 most of qbe.
+
+2017/3/9
+Use a new ops.h to store various pieces of
+information about operations.  That way,
+there is only one file to change when new
+instructions appear, but I can still
+provide abstraction for the various
+backends.
