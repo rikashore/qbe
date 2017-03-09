@@ -106,16 +106,16 @@ static inline int isreg(Ref r)
 
 enum CmpI {
 #define ICMPS(X) \
-	X(ule)   \
-	X(ult)   \
+	X(eq)    \
+	X(ne)    \
+	X(sge)   \
+	X(sgt)   \
 	X(sle)   \
 	X(slt)   \
-	X(sgt)   \
-	X(sge)   \
-	X(ugt)   \
 	X(uge)   \
-	X(eq)    \
-	X(ne)
+	X(ugt)   \
+	X(ule)   \
+	X(ult)
 #define X(c) Ci##c,
 	ICMPS(X)
 #undef X
@@ -124,11 +124,11 @@ enum CmpI {
 
 enum CmpF {
 #define FCMPS(X) \
+	X(eq)    \
+	X(ge)    \
+	X(gt)    \
 	X(le)    \
 	X(lt)    \
-	X(gt)    \
-	X(ge)    \
-	X(eq)    \
 	X(ne)    \
 	X(o)     \
 	X(uo)
