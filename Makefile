@@ -28,7 +28,7 @@ $(OBJDIR)/timestamp:
 	@mkdir -p $(OBJDIR)/arch-arm64
 	@touch $@
 
-$(OBJ): all.h
+$(OBJ): all.h ops.h
 $(X64OBJ): arch-x64/x64.h
 $(ARM64OBJ): arch-arm64/arm64.h
 obj/main.o: config.h arch-x64/x64.h arch-arm64/arm64.h # fixme

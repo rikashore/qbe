@@ -117,7 +117,7 @@ static struct {
 	{ Oxcmp,   Ki, "cmp%k %0, %1" },
 	{ Oxtest,  Ki, "test%k %0, %1" },
 #define X(c, s) \
-	{ Osetcc+c, Ki, "set" s " %B=\n\tmovzb%k %B=, %=" },
+	{ Oflag+c, Ki, "set" s " %B=\n\tmovzb%k %B=, %=" },
 	CMP(X)
 #undef X
 	{ NOp, 0, 0 }
@@ -543,7 +543,7 @@ x_emitfn(Fn *fn, FILE *f)
 				lbl = 0;
 			break;
 		default:
-			c = b->jmp.type - Jjcc;
+			c = b->jmp.type - Jjf;
 			if (0 <= c && c <= NCmp) {
 				if (b->link == b->s2) {
 					s = b->s1;

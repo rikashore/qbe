@@ -8,87 +8,12 @@ enum {
 };
 
 OpDesc opdesc[NOp] = {
-#define A(a,b,c,d) {[Kw]=K##a, [Kl]=K##b, [Ks]=K##c, [Kd]=K##d}
-
-	/*            NAME       NM      ARGCLS0     ARGCLS1  SF LF FLD*/
-	[Oadd]    = { "add",      2, {A(w,l,s,d), A(w,l,s,d)}, 1, 0, 1 },
-	[Osub]    = { "sub",      2, {A(w,l,s,d), A(w,l,s,d)}, 1, 0, 1 },
-	[Odiv]    = { "div",      2, {A(w,l,s,d), A(w,l,s,d)}, 0, 0, 1 },
-	[Orem]    = { "rem",      2, {A(w,l,e,e), A(w,l,e,e)}, 0, 0, 1 },
-	[Oudiv]   = { "udiv",     2, {A(w,l,e,e), A(w,l,e,e)}, 0, 0, 1 },
-	[Ourem]   = { "urem",     2, {A(w,l,e,e), A(w,l,e,e)}, 0, 0, 1 },
-	[Omul]    = { "mul",      2, {A(w,l,s,d), A(w,l,s,d)}, 0, 0, 1 },
-	[Oand]    = { "and",      2, {A(w,l,e,e), A(w,l,e,e)}, 1, 0, 1 },
-	[Oor]     = { "or",       2, {A(w,l,e,e), A(w,l,e,e)}, 1, 0, 1 },
-	[Oxor]    = { "xor",      2, {A(w,l,e,e), A(w,l,e,e)}, 1, 0, 1 },
-	[Osar]    = { "sar",      1, {A(w,l,e,e), A(w,w,e,e)}, 1, 0, 1 },
-	[Oshr]    = { "shr",      1, {A(w,l,e,e), A(w,w,e,e)}, 1, 0, 1 },
-	[Oshl]    = { "shl",      1, {A(w,l,e,e), A(w,w,e,e)}, 1, 0, 1 },
-	[Ostored] = { "stored",   0, {A(d,e,e,e), A(m,e,e,e)}, 0, 1, 0 },
-	[Ostores] = { "stores",   0, {A(s,e,e,e), A(m,e,e,e)}, 0, 1, 0 },
-	[Ostorel] = { "storel",   0, {A(l,e,e,e), A(m,e,e,e)}, 0, 1, 0 },
-	[Ostorew] = { "storew",   0, {A(w,e,e,e), A(m,e,e,e)}, 0, 1, 0 },
-	[Ostoreh] = { "storeh",   0, {A(w,e,e,e), A(m,e,e,e)}, 0, 1, 0 },
-	[Ostoreb] = { "storeb",   0, {A(w,e,e,e), A(m,e,e,e)}, 0, 1, 0 },
-	[Oload]   = { "load",     0, {A(m,m,m,m), A(x,x,x,x)}, 0, 1, 0 },
-	[Oloadsw] = { "loadsw",   0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Oloaduw] = { "loaduw",   0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Oloadsh] = { "loadsh",   0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Oloaduh] = { "loaduh",   0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Oloadsb] = { "loadsb",   0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Oloadub] = { "loadub",   0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Oextsw]  = { "extsw",    0, {A(e,w,e,e), A(e,x,e,e)}, 0, 1, 1 },
-	[Oextuw]  = { "extuw",    0, {A(e,w,e,e), A(e,x,e,e)}, 0, 1, 1 },
-	[Oextsh]  = { "extsh",    0, {A(w,w,e,e), A(x,x,e,e)}, 0, 1, 1 },
-	[Oextuh]  = { "extuh",    0, {A(w,w,e,e), A(x,x,e,e)}, 0, 1, 1 },
-	[Oextsb]  = { "extsb",    0, {A(w,w,e,e), A(x,x,e,e)}, 0, 1, 1 },
-	[Oextub]  = { "extub",    0, {A(w,w,e,e), A(x,x,e,e)}, 0, 1, 1 },
-	[Oexts]   = { "exts",     0, {A(e,e,e,s), A(e,e,e,x)}, 0, 1, 1 },
-	[Otruncd] = { "truncd",   0, {A(e,e,d,e), A(e,e,x,e)}, 0, 1, 1 },
-	[Ostosi]  = { "stosi",    0, {A(s,s,e,e), A(x,x,e,e)}, 0, 1, 1 },
-	[Odtosi]  = { "dtosi",    0, {A(d,d,e,e), A(x,x,e,e)}, 0, 1, 1 },
-	[Oswtof]  = { "swtof",    0, {A(e,e,w,w), A(e,e,x,x)}, 0, 1, 1 },
-	[Osltof]  = { "sltof",    0, {A(e,e,l,l), A(e,e,x,x)}, 0, 1, 1 },
-	[Ocast]   = { "cast",     0, {A(s,d,w,l), A(x,x,x,x)}, 0, 1, 1 },
-	[Ocopy]   = { "copy",     1, {A(w,l,s,d), A(x,x,x,x)}, 0, 1, 0 },
-	[Onop]    = { "nop",      0, {A(x,x,x,x), A(x,x,x,x)}, 0, 1, 0 },
-	[Oswap]   = { "swap",     2, {A(w,l,s,d), A(w,l,s,d)}, 0, 0, 0 },
-	[Osign]   = { "sign",     0, {A(w,l,e,e), A(x,x,e,e)}, 0, 0, 0 },
-	[Osalloc] = { "salloc",   0, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
-	[Oxidiv]  = { "xidiv",    1, {A(w,l,e,e), A(x,x,e,e)}, 0, 0, 0 },
-	[Oxdiv]   = { "xdiv",     1, {A(w,l,e,e), A(x,x,e,e)}, 0, 0, 0 },
-	[Oxcmp]   = { "xcmp",     1, {A(w,l,s,d), A(w,l,s,d)}, 1, 0, 0 },
-	[Oxtest]  = { "xtest",    1, {A(w,l,e,e), A(w,l,e,e)}, 1, 0, 0 },
-	[Oaddr]   = { "addr",     0, {A(m,m,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	[Opar]    = { "par",      0, {A(x,x,x,x), A(x,x,x,x)}, 0, 0, 0 },
-	[Opare]   = { "pare",     0, {A(x,x,x,x), A(x,x,x,x)}, 0, 0, 0 },
-	[Oparc]   = { "parc",     0, {A(e,x,e,e), A(e,x,e,e)}, 0, 0, 0 },
-	[Oarg]    = { "arg",      0, {A(w,l,s,d), A(x,x,x,x)}, 0, 0, 0 },
-	[Oarge]   = { "arge",     0, {A(w,l,s,d), A(x,x,x,x)}, 0, 0, 0 },
-	[Oargc]   = { "argc",     0, {A(e,x,e,e), A(e,l,e,e)}, 0, 0, 0 },
-	[Ocall]   = { "call",     0, {A(m,m,m,m), A(x,x,x,x)}, 0, 0, 0 },
-	[Ovacall] = { "vacall",   0, {A(m,m,m,m), A(x,x,x,x)}, 0, 0, 0 },
-	[Oalloc]   = { "alloc4",  1, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
-	[Oalloc+1] = { "alloc8",  1, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
-	[Oalloc+2] = { "alloc16", 1, {A(e,l,e,e), A(e,x,e,e)}, 0, 0, 0 },
-	[Ovaarg]   = { "vaarg",   0, {A(m,m,m,m), A(x,x,x,x)}, 0, 0, 0 },
-	[Ovastart] = { "vastart", 0, {A(m,e,e,e), A(x,e,e,e)}, 0, 0, 0 },
-#define X(c) \
-	[Ocmpw+Ci##c]  = { "c"   #c "w", 0, {A(w,w,e,e), A(w,w,e,e)}, 1, 0, 1 }, \
-	[Ocmpl+Ci##c]  = { "c"   #c "l", 0, {A(l,l,e,e), A(l,l,e,e)}, 1, 0, 1 }, \
-	[Osetcc+Ci##c] = { "icc" #c,     0, {A(x,x,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	ICMPS(X)
-#undef X
-#define X(c) \
-	[Ocmps+Cf##c]  = { "c"   #c "s", 0, {A(s,s,e,e), A(s,s,e,e)}, 1, 0, 1 }, \
-	[Ocmpd+Cf##c]  = { "c"   #c "d", 0, {A(d,d,e,e), A(d,d,e,e)}, 1, 0, 1 }, \
-	[Osetcc+NCmpI+Cf##c] = \
-	                 { "fcc" #c,     0, {A(x,x,e,e), A(x,x,e,e)}, 0, 1, 0 },
-	FCMPS(X)
-#undef X
-
+#define OP(op, str, t, cf) [op]={str, t, cf,
+#define X64(nm, sf, lf) sf, lf, nm},
+	#include "ops.h"
+#undef X64
+#undef OP
 };
-#undef A
 
 typedef enum {
 	PXXX,
@@ -1239,10 +1164,10 @@ printfn(Fn *fn, FILE *f)
 		[Jrets]     = "rets",
 		[Jretd]     = "retd",
 		[Jjnz]      = "jnz",
-	#define X(c) [Jjcc+Ci##c] = "jicc" #c,
+	#define X(c) [Jjf+Ci##c] = "jfi" #c,
 		ICMPS(X)
 	#undef X
-	#define X(c) [Jjcc+NCmpI+Cf##c] = "jfcc" #c,
+	#define X(c) [Jjf+NCmpI+Cf##c] = "jff" #c,
 		FCMPS(X)
 	#undef X
 	};

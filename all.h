@@ -233,8 +233,8 @@ enum Op {
 	Oaddr,
 	Oswap,
 	Osign,
-	Osetcc,
-	Osetcc1 = Osetcc + NCmp-1,
+	Oflag,
+	Oflag1 = Oflag + NCmp-1,
 	Osalloc,
 	Oxidiv,
 	Oxdiv,
@@ -254,18 +254,18 @@ enum Jmp {
 #define isret(j) (Jret0 <= j && j <= Jretc)
 	Jjmp,
 	Jjnz,
-	Jjcc,
-	Jjcc1 = Jjcc + NCmp-1,
+	Jjf,
+	Jjf1 = Jjf + NCmp-1,
 	NJmp
 };
 
 struct OpDesc {
 	char *name;
-	int nmem;
 	short argcls[2][4];
+	uint cfold:1; /* can fold */
 	uint sflag:1; /* sets the zero flag */
 	uint lflag:1; /* leaves flags */
-	uint cfold:1; /* can fold */
+	int nmem;
 };
 
 struct Ins {

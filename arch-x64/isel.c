@@ -334,10 +334,10 @@ Emit:
 		if (isload(i.op))
 			goto case_Oload;
 		if (iscmp(i.op, &kc, &x)) {
-			emit(Osetcc+x, k, i.to, R, R);
+			emit(Oflag+x, k, i.to, R, R);
 			i1 = curi;
 			if (selcmp(i.arg, kc, fn))
-				i1->op = Osetcc + cmpop(x);
+				i1->op = Oflag + cmpop(x);
 			break;
 		}
 		die("unknown instruction %s", opdesc[i.op].name);
@@ -387,7 +387,7 @@ seljmp(Blk *b, Fn *fn)
 	fi = flagi(b->ins, &b->ins[b->nins]);
 	if (!fi || !req(fi->to, r)) {
 		selcmp((Ref[2]){r, CON_Z}, Kw, fn); /* todo, long jnz */
-		b->jmp.type = Jjcc + Cine;
+		b->jmp.type = Jjf + Cine;
 	}
 	else if (iscmp(fi->op, &k, &c)) {
 		if (t->nuse == 1) {
@@ -395,14 +395,14 @@ seljmp(Blk *b, Fn *fn)
 				c = cmpop(c);
 			*fi = (Ins){.op = Onop};
 		}
-		b->jmp.type = Jjcc + c;
+		b->jmp.type = Jjf + c;
 	}
 	else if (fi->op == Oand && t->nuse == 1
 	     && (rtype(fi->arg[0]) == RTmp ||
 	         rtype(fi->arg[1]) == RTmp)) {
 		fi->op = Oxtest;
 		fi->to = R;
-		b->jmp.type = Jjcc + Cine;
+		b->jmp.type = Jjf + Cine;
 		if (rtype(fi->arg[1]) == RCon) {
 			r = fi->arg[1];
 			fi->arg[1] = fi->arg[0];
@@ -416,7 +416,7 @@ seljmp(Blk *b, Fn *fn)
 		 */
 		if (t->nuse == 1)
 			emit(Ocopy, Kw, R, r, R);
-		b->jmp.type = Jjcc + Cine;
+		b->jmp.type = Jjf + Cine;
 	}
 }
 
