@@ -131,17 +131,6 @@ enum CmpF {
 	NCmp = NCmpI + NCmpF,
 };
 
-enum Class {
-	Kx = -1, /* "top" class (see usecheck() and clsmerge()) */
-	Kw,
-	Kl,
-	Ks,
-	Kd
-};
-
-#define KWIDE(k) ((k)&1)
-#define KBASE(k) ((k)>>1)
-
 enum Op {
 	Oxxx,
 #define OP(op, x, y) O##op,
@@ -189,6 +178,17 @@ enum {
 #define ispar(o) (Opar <= o && o <= Opare)
 #define isarg(o) (Oarg <= o && o <= Oarge)
 #define isret(j) (Jret0 <= j && j <= Jretc)
+
+enum Class {
+	Kx = -1, /* "top" class (see usecheck() and clsmerge()) */
+	Kw,
+	Kl,
+	Ks,
+	Kd
+};
+
+#define KWIDE(k) ((k)&1)
+#define KBASE(k) ((k)>>1)
 
 struct OpDesc {
 	char *name;
