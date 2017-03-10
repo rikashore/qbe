@@ -1,6 +1,42 @@
 #include "../all.h"
 #include "arm64.h"
 
+enum Imm {
+	Iother,
+	Iplo12,
+	Iphi12,
+	Iplo24,
+	Inlo12,
+	Inhi12,
+	Inlo24
+};
+
+static enum Imm
+imm(Con *c, int w, int64_t *pn)
+{
+	int64_t n;
+	int i;
+
+	if (c->type != CBits)
+		return Iother;
+	n = c->bits.i;
+	if (!w)
+		n = (int32_t)n;
+	i = Iplo12;
+	if (n < 0) {
+		i = Inlo12;
+		n = -n;
+	}
+	*pn = n;
+	if ((n & 0x000fff) == n)
+		return i;
+	if ((n & 0xfff000) == n)
+		return i + 1;
+	if ((n & 0xffffff) == n)
+		return i + 2;
+	return Iother;
+}
+
 static void
 fixarg(Ref *pr, int k, Fn *fn)
 {
@@ -11,64 +47,114 @@ fixarg(Ref *pr, int k, Fn *fn)
 	rt = rtype(r0);
 	if (rt == -1 || rt != RCon)
 		return;
-	if (KBASE(k) != 0)
-		die("TODO 1");
+	assert(KBASE(k) == 0 && "TODO 1");
 	r1 = newtmp("isel", k, fn);
 	emit(Ocopy, k, r1, r0, R);
 	*pr = r1;
+}
+
+static int
+selcmp(Ref arg[2], int k, Fn *fn)
+{
+	Ref r, *iarg;
+	Con *c;
+	int swap, cmp, fix;
+	int64_t n;
+
+	assert(KBASE(k) == 0 && "TODO 3");
+	swap = rtype(arg[0]) == RCon;
+	if (swap) {
+		r = arg[1];
+		arg[1] = arg[0];
+		arg[0] = r;
+	}
+	fix = 1;
+	cmp = Oacmp;
+	r = arg[1];
+	if (rtype(r) == RCon) {
+		c = &fn->con[r.val];
+		switch (imm(c, k == Kl, &n)) {
+		default:
+			break;
+		case Iplo12:
+		case Iphi12:
+			fix = 0;
+			break;
+		case Inlo12:
+		case Inhi12:
+			cmp = Oacmn;
+			r = getcon(n, fn);
+			fix = 0;
+			break;
+		}
+	}
+	emit(cmp, k, R, arg[0], r);
+	iarg = curi->arg;
+	fixarg(&iarg[0], k, fn);
+	if (fix)
+		fixarg(&iarg[1], k, fn);
+	return swap;
 }
 
 static void
 sel(Ins i, Fn *fn)
 {
 	Ref *iarg;
+	Ins *i0;
+	int ck, cc;
 
-	emiti(i);
-	iarg = curi->arg; /* fixarg() can change curi */
-	fixarg(&iarg[0], argcls(&i, 0), fn);
-	fixarg(&iarg[1], argcls(&i, 1), fn);
+	if (iscmp(i.op, &ck, &cc)) {
+		emit(Oflag, i.cls, i.to, R, R);
+		i0 = curi;
+		if (selcmp(i.arg, ck, fn))
+			i0->op += cmpop(cc);
+		else
+			i0->op += cc;
+	} else {
+		emiti(i);
+		iarg = curi->arg; /* fixarg() can change curi */
+		fixarg(&iarg[0], argcls(&i, 0), fn);
+		fixarg(&iarg[1], argcls(&i, 1), fn);
+	}
 }
 
 static void
 seljmp(Blk *b, Fn *fn)
 {
 	Ref r;
-	Ins *i, *ir, ic;
-	int ck, cc;
+	Ins *i, *ir;
+	int ck, cc, use;
 
 	switch (b->jmp.type) {
 	default:
-		die("TODO 2");
+		assert(0 && "TODO 2");
+		break;
 	case Jret0:
 	case Jjmp:
 		return;
 	case Jjnz:
 		break;
 	}
-	ic.op = Oacmp;
-	ic.to = R;
 	r = b->jmp.arg;
+	use = -1;
 	b->jmp.arg = R;
 	ir = 0;
 	i = &b->ins[b->nins];
 	while (i > b->ins)
 		if (req((--i)->to, r)) {
+			use = fn->tmp[r.val].nuse;
 			ir = i;
 			break;
 		}
-	if (ir && iscmp(ir->op, &ck, &cc)) {
-		ic.cls = ck;
-		memcpy(ic.arg, ir->arg, sizeof ic.arg);
-		sel(ic, fn);
+	if (ir && use == 1
+	&& iscmp(ir->op, &ck, &cc)) {
+		if (selcmp(ir->arg, ck, fn))
+			cc = cmpop(cc);
 		b->jmp.type = Jjf + cc;
-		if (fn->tmp[r.val].nuse == 1)
-			*ir = (Ins){.op = Onop};
+		*ir = (Ins){.op = Onop};
 	}
 	else {
-		ic.cls = Kw;
-		ic.arg[0] = r;
-		ic.arg[0] = CON_Z;
-		sel(ic, fn);
+		selcmp((Ref[]){r, CON_Z}, Kw, fn);
 		b->jmp.type = Jjfine;
 	}
 }
@@ -88,7 +174,7 @@ a_isel(Fn *fn)
 		idup(&b->ins, curi, b->nins);
 	}
 
-	if (debug['I']) {
+	if (1 || debug['I']) {
 		fprintf(stderr, "\n> After instruction selection:\n");
 		printfn(fn, stderr);
 	}
