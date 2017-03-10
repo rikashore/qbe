@@ -11,8 +11,6 @@ OpDesc opdesc[NOp] = {
 #define OP(op, str, t, cf) [op]={str, t, cf,
 #define X64(nm, sf, lf) sf, lf, nm},
 	#include "ops.h"
-#undef X64
-#undef OP
 };
 
 typedef enum {

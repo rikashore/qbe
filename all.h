@@ -152,96 +152,32 @@ enum Class {
 
 enum Op {
 	Oxxx,
-
-	/* public instructions */
-	Oadd,
-	Osub,
-	Odiv,
-	Orem,
-	Oudiv,
-	Ourem,
-	Omul,
-	Oand,
-	Oor,
-	Oxor,
-	Osar,
-	Oshr,
-	Oshl,
-	Ocmpw,
-	Ocmpw1 = Ocmpw + NCmpI-1,
-	Ocmpl,
-	Ocmpl1 = Ocmpl + NCmpI-1,
-	Ocmps,
-	Ocmps1 = Ocmps + NCmpF-1,
-	Ocmpd,
-	Ocmpd1 = Ocmpd + NCmpF-1,
-
-	Ostoreb,
-	Ostoreh,
-	Ostorew,
-	Ostorel,
-	Ostores,
-	Ostored,
-#define isstore(o) (Ostoreb <= o && o <= Ostored)
-	Oloadsb,  /* must match Oext and Tmp.width */
-	Oloadub,
-	Oloadsh,
-	Oloaduh,
-	Oloadsw,
-	Oloaduw,
-	Oload,
-#define isload(o) (Oloadsb <= o && o <= Oload)
-	Oextsb,
-	Oextub,
-	Oextsh,
-	Oextuh,
-	Oextsw,
-	Oextuw,
-#define isext(o) (Oextsb <= o && o <= Oextuw)
-
-	Oexts,
-	Otruncd,
-	Ostosi,
-	Odtosi,
-	Oswtof,
-	Osltof,
-	Ocast,
-
-	Oalloc,
-	Oalloc1 = Oalloc + NAlign-1,
-
-	Ovastart,
-	Ovaarg,
-
-	Ocopy,
-	NPubOp,
-
-	/* function instructions */
-	Opar = NPubOp,
-	Oparc,
-	Opare,
-#define ispar(o) (Opar <= o && o <= Opare)
-	Oarg,
-	Oargc,
-	Oarge,
-#define isarg(o) (Oarg <= o && o <= Oarge)
-	Ocall,
-	Ovacall,
-
-	/* reserved instructions */
-	Onop,
-	Oaddr,
-	Oswap,
-	Osign,
-	Oflag,
-	Oflag1 = Oflag + NCmp-1,
-	Osalloc,
-	Oxidiv,
-	Oxdiv,
-	Oxcmp,
-	Oxtest,
-	NOp
+#define OP(op, x, y, z) op,
+	#include "ops.h"
+	NOp,
 };
+
+enum {
+	Ocmpw = Oceqw,
+	Ocmpw1 = Ocultw,
+	Ocmpl = Oceql,
+	Ocmpl1 = Ocultl,
+	Ocmps = Oceqs,
+	Ocmps1 = Ocuos,
+	Ocmpd = Oceqd,
+	Ocmpd1 = Ocuod,
+	Oalloc = Oalloc4,
+	Oalloc1 = Oalloc16,
+	Oflag = Oflagieq,
+	Oflag1 = Oflagfuo,
+	NPubOp = Onop
+};
+
+#define isstore(o) (Ostoreb <= o && o <= Ostored)
+#define isload(o) (Oloadsb <= o && o <= Oload)
+#define isext(o) (Oextsb <= o && o <= Oextuw)
+#define ispar(o) (Opar <= o && o <= Opare)
+#define isarg(o) (Oarg <= o && o <= Oarge)
 
 enum Jmp {
 	Jxxx,
