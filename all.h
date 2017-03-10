@@ -152,7 +152,7 @@ enum Class {
 
 enum Op {
 	Oxxx,
-#define OP(op, x, y, z) op,
+#define OP(op, x, y) O##op,
 	#include "ops.h"
 	NOp,
 };

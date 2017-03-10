@@ -8,7 +8,7 @@ enum {
 };
 
 OpDesc opdesc[NOp] = {
-#define OP(op, str, t, cf) [op]={str, t, cf,
+#define OP(op, t, cf) [O##op]={#op, t, cf,
 #define X64(nm, sf, lf) sf, lf, nm},
 	#include "ops.h"
 };
