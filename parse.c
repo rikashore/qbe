@@ -1154,20 +1154,12 @@ printref(Ref r, Fn *fn, FILE *f)
 void
 printfn(Fn *fn, FILE *f)
 {
+	static char ktoc[] = "wlsd";
 	static char *jtoa[NJmp] = {
 	#define X(j) [J##j] = #j,
 		JMPS(X)
 	#undef X
 	};
-	static char prcls[NOp] = {
-		[Oarg] = 1,
-		[Oswap] = 1,
-		[Oxcmp] = 1,
-		[Oxtest] = 1,
-		[Oxdiv] = 1,
-		[Oxidiv] = 1,
-	};
-	static char ktoc[] = "wlsd";
 	Blk *b;
 	Phi *p;
 	Ins *i;
@@ -1201,8 +1193,16 @@ printfn(Fn *fn, FILE *f)
 			}
 			assert(opdesc[i->op].name);
 			fprintf(f, "%s", opdesc[i->op].name);
-			if (req(i->to, R) && prcls[i->op])
-				fputc(ktoc[i->cls], f);
+			if (req(i->to, R))
+				switch (i->op) {
+				case Oarg:
+				case Oswap:
+				case Oxcmp:
+				case Oxtest:
+				case Oxdiv:
+				case Oxidiv:
+					fputc(ktoc[i->cls], f);
+				}
 			if (!req(i->arg[0], R)) {
 				fprintf(f, " ");
 				printref(i->arg[0], fn, f);
