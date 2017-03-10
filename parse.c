@@ -1155,18 +1155,8 @@ void
 printfn(Fn *fn, FILE *f)
 {
 	static char *jtoa[NJmp] = {
-		[Jret0]     = "ret",
-		[Jretw]     = "retw",
-		[Jretl]     = "retl",
-		[Jretc]     = "retc",
-		[Jrets]     = "rets",
-		[Jretd]     = "retd",
-		[Jjnz]      = "jnz",
-	#define X(c) [Jjf+Ci##c] = "jfi" #c,
-		ICMPS(X)
-	#undef X
-	#define X(c) [Jjf+NCmpI+Cf##c] = "jff" #c,
-		FCMPS(X)
+	#define X(j) [J##j] = #j,
+		JMPS(X)
 	#undef X
 	};
 	static char prcls[NOp] = {

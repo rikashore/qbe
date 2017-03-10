@@ -105,36 +105,28 @@ static inline int isreg(Ref r)
 }
 
 enum CmpI {
-#define ICMPS(X) \
-	X(eq)    \
-	X(ne)    \
-	X(sge)   \
-	X(sgt)   \
-	X(sle)   \
-	X(slt)   \
-	X(uge)   \
-	X(ugt)   \
-	X(ule)   \
-	X(ult)
-#define X(c) Ci##c,
-	ICMPS(X)
-#undef X
+	Cieq,
+	Cine,
+	Cisge,
+	Cisgt,
+	Cisle,
+	Cislt,
+	Ciuge,
+	Ciugt,
+	Ciule,
+	Ciult,
 	NCmpI,
 };
 
 enum CmpF {
-#define FCMPS(X) \
-	X(eq)    \
-	X(ge)    \
-	X(gt)    \
-	X(le)    \
-	X(lt)    \
-	X(ne)    \
-	X(o)     \
-	X(uo)
-#define X(c) Cf##c,
-	FCMPS(X)
-#undef X
+	Cfeq,
+	Cfge,
+	Cfgt,
+	Cfle,
+	Cflt,
+	Cfne,
+	Cfo,
+	Cfuo,
 	NCmpF,
 	NCmp = NCmpI + NCmpF,
 };
@@ -157,6 +149,22 @@ enum Op {
 	NOp,
 };
 
+enum Jmp {
+	Jxxx,
+#define JMPS(X)                                 \
+	X(ret0)   X(retw)   X(retl)   X(rets)   \
+	X(retd)   X(retc)   X(jmp)    X(jnz)    \
+	X(jfieq)  X(jfine)  X(jfisge) X(jfisgt) \
+	X(jfisle) X(jfislt) X(jfiuge) X(jfiugt) \
+	X(jfiule) X(jfiult) X(jffeq)  X(jffge)  \
+	X(jffgt)  X(jffle)  X(jfflt)  X(jffne)  \
+	X(jffo)   X(jffuo)
+#define X(j) J##j,
+	JMPS(X)
+#undef X
+	NJmp
+};
+
 enum {
 	Ocmpw = Oceqw,
 	Ocmpw1 = Ocultw,
@@ -170,7 +178,9 @@ enum {
 	Oalloc1 = Oalloc16,
 	Oflag = Oflagieq,
 	Oflag1 = Oflagfuo,
-	NPubOp = Onop
+	NPubOp = Onop,
+	Jjf = Jjfieq,
+	Jjf1 = Jjffuo,
 };
 
 #define isstore(o) (Ostoreb <= o && o <= Ostored)
@@ -178,22 +188,7 @@ enum {
 #define isext(o) (Oextsb <= o && o <= Oextuw)
 #define ispar(o) (Opar <= o && o <= Opare)
 #define isarg(o) (Oarg <= o && o <= Oarge)
-
-enum Jmp {
-	Jxxx,
-	Jret0,
-	Jretw,
-	Jretl,
-	Jrets,
-	Jretd,
-	Jretc,
 #define isret(j) (Jret0 <= j && j <= Jretc)
-	Jjmp,
-	Jjnz,
-	Jjf,
-	Jjf1 = Jjf + NCmp-1,
-	NJmp
-};
 
 struct OpDesc {
 	char *name;
