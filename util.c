@@ -87,6 +87,36 @@ freeall()
 	nptr = 1;
 }
 
+int
+iscmp(int op, int *pk, int *pc)
+{
+	if (Ocmpw <= op && op <= Ocmpw1) {
+		*pc = op - Ocmpw;
+		*pk = Kw;
+	}
+	else if (Ocmpl <= op && op <= Ocmpl1) {
+		*pc = op - Ocmpl;
+		*pk = Kl;
+	}
+	else if (Ocmps <= op && op <= Ocmps1) {
+		*pc = NCmpI + op - Ocmps;
+		*pk = Ks;
+	}
+	else if (Ocmpd <= op && op <= Ocmpd1) {
+		*pc = NCmpI + op - Ocmpd;
+		*pk = Kd;
+	}
+	else
+		return 0;
+	return 1;
+}
+
+int
+argcls(Ins *i, int n)
+{
+	return opdesc[i->op].argcls[n][i->cls];
+}
+
 void
 emit(int op, int k, Ref to, Ref arg0, Ref arg1)
 {

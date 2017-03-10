@@ -1198,6 +1198,8 @@ printfn(Fn *fn, FILE *f)
 				case Oarg:
 				case Oswap:
 				case Oxcmp:
+				case Oacmp:
+				case Oacmn:
 				case Oxtest:
 				case Oxdiv:
 				case Oxidiv:

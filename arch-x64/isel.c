@@ -29,30 +29,6 @@ struct ANum {
 static void amatch(Addr *, Ref, ANum *, Fn *, int);
 
 static int
-iscmp(int op, int *pk, int *pc)
-{
-	if (Ocmpw <= op && op <= Ocmpw1) {
-		*pc = op - Ocmpw;
-		*pk = Kw;
-	}
-	else if (Ocmpl <= op && op <= Ocmpl1) {
-		*pc = op - Ocmpl;
-		*pk = Kl;
-	}
-	else if (Ocmps <= op && op <= Ocmps1) {
-		*pc = NCmpI + op - Ocmps;
-		*pk = Ks;
-	}
-	else if (Ocmpd <= op && op <= Ocmpd1) {
-		*pc = NCmpI + op - Ocmpd;
-		*pk = Kd;
-	}
-	else
-		return 0;
-	return 1;
-}
-
-static int
 noimm(Ref r, Fn *fn)
 {
 	int64_t val;
@@ -83,14 +59,8 @@ rslot(Ref r, Fn *fn)
 	return fn->tmp[r.val].slot;
 }
 
-static int
-argcls(Ins *i, int n)
-{
-	return opdesc[i->op].argcls[n][i->cls];
-}
-
 static void
-fixarg(Ref *r, int k, int phi, Fn *fn)
+fixarg(Ref *r, int k, int cpy, Fn *fn)
 {
 	Addr a, *m;
 	Ref r0, r1;
@@ -112,7 +82,7 @@ fixarg(Ref *r, int k, int phi, Fn *fn)
 		sprintf(a.offset.label, "fp%d", n);
 		fn->mem[fn->nmem-1] = a;
 	}
-	else if (!phi && k == Kl && noimm(r0, fn)) {
+	else if (!cpy && k == Kl && noimm(r0, fn)) {
 		/* load constants that do not fit in
 		 * a 32bit signed integer into a
 		 * long temporary
@@ -300,8 +270,8 @@ sel(Ins i, ANum *an, Fn *fn)
 Emit:
 		emiti(i);
 		iarg = curi->arg; /* fixarg() can change curi */
-		fixarg(&iarg[0], argcls(&i, 0), 0, fn);
-		fixarg(&iarg[1], argcls(&i, 1), 0, fn);
+		fixarg(&iarg[0], argcls(&i, 0), i.op == Ocopy, fn);
+		fixarg(&iarg[1], argcls(&i, 1), i.op == Ocopy, fn);
 		break;
 	case Oalloc:
 	case Oalloc+1:

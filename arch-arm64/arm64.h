@@ -1,3 +1,5 @@
+#ifndef MAIN
+
 enum Reg {
 	R0 = RXX + 1,
 	     R1,  R2,  R3,  R4,  R5,  R6,  R7,
@@ -16,8 +18,9 @@ enum Reg {
 	NFPS = (V7 - V0 + 1) + (V30 - V16 + 1),
 	NCLR = (R28 - R19 + 1) + (V15 - V8 + 1),
 };
-
 MAKESURE(Reg_not_tmp, V30 < (int)Tmp0);
+
+#endif
 
 /* isel.c */
 void a_isel(Fn *);
