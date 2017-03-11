@@ -5,7 +5,7 @@ enum Reg {
 	     R1,  R2,  R3,  R4,  R5,  R6,  R7,
 	R8,  R9,  R10, R11, R12, R13, R14, R15,
 	IP0, IP1, R18, R19, R20, R21, R22, R23,
-	R24, R25, R26, R27, R28, FP,  SP,  LR,
+	R24, R25, R26, R27, R28, FP,  LR,  SP,
 
 	V0,  V1,  V2,  V3,  V4,  V5,  V6,  V7,
 	V8,  V9,  V10, V11, V12, V13, V14, V15,
