@@ -174,7 +174,7 @@ a_isel(Fn *fn)
 		idup(&b->ins, curi, b->nins);
 	}
 
-	if (1 || debug['I']) {
+	if (debug['I']) {
 		fprintf(stderr, "\n> After instruction selection:\n");
 		printfn(fn, stderr);
 	}

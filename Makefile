@@ -6,7 +6,7 @@ OBJDIR = obj
 SRC      = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c \
            fold.c live.c spill.c rega.c
 X64SRC   = arch-x64/targ.c arch-x64/sysv.c arch-x64/isel.c arch-x64/emit.c
-ARM64SRC = arch-arm64/targ.c arch-arm64/isel.c
+ARM64SRC = arch-arm64/targ.c arch-arm64/isel.c arch-arm64/emit.c
 
 X64OBJ   = $(X64SRC:%.c=$(OBJDIR)/%.o)
 ARM64OBJ = $(ARM64SRC:%.c=$(OBJDIR)/%.o)
