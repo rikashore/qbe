@@ -23,6 +23,7 @@ MAKESURE(Reg_not_tmp, V30 < (int)Tmp0);
 #endif
 
 /* isel.c */
+int a_logimm(uint64_t);
 void a_isel(Fn *);
 
 /* emit.c */

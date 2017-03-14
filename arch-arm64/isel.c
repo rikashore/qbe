@@ -37,6 +37,34 @@ imm(Con *c, int w, int64_t *pn)
 	return Iother;
 }
 
+int
+a_logimm(uint64_t x)
+{
+	uint64_t n;
+
+	if (x & 1)
+		x = ~x;
+	if (x == 0)
+		return 0;
+	if (x == 0xaaaaaaaaaaaaaaaa)
+		return 1;
+	n = x & 0xf;
+	if (0x1111111111111111 * n == x)
+		goto Check;
+	n = x & 0xff;
+	if (0x0101010101010101 * n == x)
+		goto Check;
+	n = x & 0xffff;
+	if (0x0001000100010001 * n == x)
+		goto Check;
+	n = x & 0xffffffff;
+	if (0x0000000100000001 * n == x)
+		goto Check;
+	n = x;
+Check:
+	return (n & (n + (n & -n))) == 0;
+}
+
 static void
 fixarg(Ref *pr, int k, Fn *fn)
 {
