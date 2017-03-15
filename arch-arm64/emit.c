@@ -108,7 +108,7 @@ Next:
 			assert(pc->type == CBits);
 			n = pc->bits.i;
 			if (n & 0xfff000)
-				fprintf(f, "#%u, lsl 12", n>>12);
+				fprintf(f, "#%u, lsl #12", n>>12);
 			else
 				fprintf(f, "#%u", n);
 			break;
@@ -119,12 +119,37 @@ Next:
 }
 
 static void
+loadcon(Con *c, int r, int k, FILE *f)
+{
+	char *rn;
+	int64_t n;
+	int w, sh;
+
+	w = KWIDE(k);
+	rn = rname(r, k);
+	if (c->type != CBits)
+		die("todo");
+	n = c->bits.i;
+	if (!w)
+		n = (int32_t)n;
+	if ((n | 0xffff) == -1 || a_logimm(n, k)) {
+		fprintf(f, "\tmov %s, #%"PRIi64"\n", rn, n);
+	} else {
+		fprintf(f, "\tmov %s, #%d\n",
+			rn, (int)(n & 0xffff));
+		for (sh=16; n>>=16; sh+=16) {
+			if ((!w && sh == 32) || sh == 64)
+				break;
+			fprintf(f, "\tmovk %s, #0x%x, lsl #%d\n",
+				rn, (unsigned)(n & 0xffff), sh);
+		}
+	}
+}
+
+static void
 emitins(Ins *i, Fn *fn, FILE *f)
 {
-	int o, sh;
-	Con *pc;
-	int64_t n;
-	char *rn;
+	int o;
 
 	switch (i->op) {
 	default:
@@ -149,26 +174,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 	case Ocopy:
 		if (rtype(i->arg[0]) != RCon)
 			goto Table;
-		pc = &fn->con[i->arg[0].val];
-		switch (pc->type) {
-		default:
-			die("todo");
-		case CBits:
-			n = pc->bits.i;
-			if (!KWIDE(i->cls))
-				n = (int32_t)n;
-			rn = rname(i->to.val, i->cls);
-			fprintf(f, "\tmov %s, %d\n",
-				rn, (int)(n & 0xffff));
-			for (sh=16; n>>=16; sh+=16) {
-				if ((!KWIDE(i->cls) && sh == 32)
-				|| sh == 64)
-					break;
-				fprintf(f, "\tmovk %s, %d, lsl %d\n",
-					rn, (int)(n & 0xffff), sh);
-			}
-			break;
-		}
+		loadcon(&fn->con[i->arg[0].val], i->to.val, i->cls, f);
 		break;
 	}
 }

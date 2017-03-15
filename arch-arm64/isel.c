@@ -38,10 +38,12 @@ imm(Con *c, int w, int64_t *pn)
 }
 
 int
-a_logimm(uint64_t x)
+a_logimm(uint64_t x, int k)
 {
 	uint64_t n;
 
+	if (KWIDE(k))
+		x = (x & 0xffffffff) | x << 32;
 	if (x & 1)
 		x = ~x;
 	if (x == 0)
