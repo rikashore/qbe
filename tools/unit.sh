@@ -1,17 +1,17 @@
 #!/bin/sh
 
-DIR=`cd $(dirname "$0"); pwd`
-QBE=$DIR/../obj/qbe
+dir=`cd $(dirname "$0"); pwd`
+bin=$dir/../obj/qbe
 
-TMP=/tmp/qbe.zzzz
+tmp=/tmp/qbe.zzzz
 
-DRV=$TMP.c
-ASM=$TMP.s
-BIN=$TMP.bin
-OUT=$TMP.out
+drv=$tmp.c
+asm=$tmp.s
+exe=$tmp.exe
+out=$tmp.out
 
 cleanup() {
-	rm -f $DRV $ASM $BIN $OUT
+	rm -f $drv $asm $exe $out
 }
 
 extract() {
@@ -43,35 +43,35 @@ once() {
 
 	printf "%-45s" "$(basename $T)..."
 
-	if ! $QBE -o $ASM $T
+	if ! $bin -o $asm $T
 	then
 		echo "[qbe fail]"
 		return 1
 	fi
 
-	extract driver $T > $DRV
-	extract output $T > $OUT
+	extract driver $T > $drv
+	extract output $T > $out
 
-	if test -s $DRV
+	if test -s $drv
 	then
-		LNK="$DRV $ASM"
+		LNK="$drv $asm"
 	else
-		LNK="$ASM"
+		LNK="$asm"
 	fi
 
-	if ! cc $PIE -g -o $BIN $LNK
+	if ! cc $PIE -g -o $exe $LNK
 	then
 		echo "[cc fail]"
 		return 1
 	fi
 
-	if test -s $OUT
+	if test -s $out
 	then
-		$BIN a b c | diff - $OUT
+		$exe a b c | diff - $out
 		RET=$?
 		REASON="output"
 	else
-		$BIN a b c
+		$exe a b c
 		RET=$?
 		REASON="returned $RET"
 	fi
@@ -106,7 +106,7 @@ done
 case $1 in
 	"all")
 		F=0
-		for T in $DIR/../test/[!_]*.ssa
+		for T in $dir/../test/[!_]*.ssa
 		do
 			once $T
 			F=`expr $F + $?`
