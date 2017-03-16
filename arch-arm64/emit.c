@@ -17,7 +17,7 @@
 	X(NCmpI+Cfgt,"gt") \
 	X(NCmpI+Cfle,"ls") \
 	X(NCmpI+Cflt,"mi") \
-	X(NCmpI+Cfne,"nz") \
+	X(NCmpI+Cfne,"ne") \
 	X(NCmpI+Cfo,"vc") \
 	X(NCmpI+Cfuo,"vs")
 
