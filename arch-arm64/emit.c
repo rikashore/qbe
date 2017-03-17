@@ -212,7 +212,7 @@ a_emitfn(Fn *fn, FILE *f)
 	);
 	for (lbl=0, b=fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
-			fprintf(f, ".bb%d:\n", id0+b->id);
+			fprintf(f, ".L%d:\n", id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
 			emitins(i, fn, f);
 		lbl = 1;
@@ -223,7 +223,7 @@ a_emitfn(Fn *fn, FILE *f)
 		case Jjmp:
 		Jmp:
 			if (b->s1 != b->link)
-				fprintf(f, "\tb .bb%d\n", id0+b->s1->id);
+				fprintf(f, "\tb .L%d\n", id0+b->s1->id);
 			else
 				lbl = 0;
 			break;
@@ -237,7 +237,7 @@ a_emitfn(Fn *fn, FILE *f)
 				b->s2 = s;
 			} else
 				c = cmpneg(c);
-			fprintf(f, "\tb%s .bb%d\n", ctoa[c], id0+b->s2->id);
+			fprintf(f, "\tb%s .L%d\n", ctoa[c], id0+b->s2->id);
 			goto Jmp;
 		}
 	}
