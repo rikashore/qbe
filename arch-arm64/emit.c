@@ -121,15 +121,26 @@ Next:
 static void
 loadcon(Con *c, int r, int k, FILE *f)
 {
-	char *rn;
+	char *rn, off[32];
 	int64_t n;
 	int w, sh;
 
 	w = KWIDE(k);
 	rn = rname(r, k);
-	if (c->type != CBits)
-		die("todo");
 	n = c->bits.i;
+	if (c->type == CAddr) {
+		rn = rname(r, Kl);
+		if (n)
+			sprintf(off, "+%"PRIi64, n);
+		else
+			off[0] = 0;
+		fprintf(f, "\tadrp %s, %s%s\n",
+			rn, c->label, off);
+		fprintf(f, "\tadd %s, %s, #:lo12:%s%s\n",
+			rn, rn, c->label, off);
+		return;
+	}
+	assert(c->type == CBits);
 	if (!w)
 		n = (int32_t)n;
 	if ((n | 0xffff) == -1 || a_logimm(n, k)) {
