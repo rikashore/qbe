@@ -2,24 +2,24 @@
 #include "arm64.h"
 
 #define CMP(X) \
-	X(Cieq,"eq") \
-	X(Cine,"ne") \
-	X(Cisge,"ge") \
-	X(Cisgt,"gt") \
-	X(Cisle,"le") \
-	X(Cislt,"lt") \
-	X(Ciuge,"cs") \
-	X(Ciugt,"hi") \
-	X(Ciule,"ls") \
-	X(Ciult,"cc") \
-	X(NCmpI+Cfeq,"eq") \
-	X(NCmpI+Cfge,"ge") \
-	X(NCmpI+Cfgt,"gt") \
-	X(NCmpI+Cfle,"ls") \
-	X(NCmpI+Cflt,"mi") \
-	X(NCmpI+Cfne,"ne") \
-	X(NCmpI+Cfo,"vc") \
-	X(NCmpI+Cfuo,"vs")
+	X(Cieq,       "eq") \
+	X(Cine,       "ne") \
+	X(Cisge,      "ge") \
+	X(Cisgt,      "gt") \
+	X(Cisle,      "le") \
+	X(Cislt,      "lt") \
+	X(Ciuge,      "cs") \
+	X(Ciugt,      "hi") \
+	X(Ciule,      "ls") \
+	X(Ciult,      "cc") \
+	X(NCmpI+Cfeq, "eq") \
+	X(NCmpI+Cfge, "ge") \
+	X(NCmpI+Cfgt, "gt") \
+	X(NCmpI+Cfle, "ls") \
+	X(NCmpI+Cflt, "mi") \
+	X(NCmpI+Cfne, "ne") \
+	X(NCmpI+Cfo,  "vc") \
+	X(NCmpI+Cfuo, "vs")
 
 enum {
 	Ki = -1, /* matches Kw and Kl */
@@ -31,11 +31,40 @@ static struct {
 	short cls;
 	char *asm;
 } omap[] = {
-	{ Oadd,  Ki, "add %=, %0, %1" },
-	{ Osub,  Ki, "sub %=, %0, %1" },
-	{ Oacmp, Ki, "cmp %0, %1" },
-	{ Oacmn, Ki, "cmn %0, %1" },
-	{ Ocopy, Ka, "mov %=, %1" },
+	{ Oadd,    Ki, "add %=, %0, %1" },
+	{ Osub,    Ki, "sub %=, %0, %1" },
+	{ Oand,    Ki, "and %=, %0, %1" },
+	{ Oor,     Ki, "orr %=, %0, %1" },
+	{ Oxor,    Ki, "eor %=, %0, %1" },
+	{ Osar,    Ki, "asr %=, %0, %1" },
+	{ Oshr,    Ki, "lsr %=, %0, %1" },
+	{ Oshl,    Ki, "lsl %=, %0, %1" },
+	{ Omul,    Ki, "mul %=, %0, %1" },
+	{ Odiv,    Ki, "sdiv %=, %0, %1" },
+	{ Oudiv,   Ki, "udiv %=, %0, %1" },
+	{ Ocopy,   Ka, "mov %=, %0" },
+	{ Oloadsb, Ki, "ldrsb %=, %M0" },
+	{ Oloadub, Ki, "ldrb %=, %M0" },
+	{ Oloadsh, Ki, "ldrsh %=, %M0" },
+	{ Oloaduh, Ki, "ldrh %=, %M0" },
+	{ Oloadsw, Kw, "ldr %=, %M0" },
+	{ Oloadsw, Kl, "ldrsw %=, %M0" },
+	{ Oloaduw, Ki, "ldr %W=, %M0" },
+	{ Oload,   Ki, "ldr %=, %M0" },
+	{ Oextsb,  Ki, "sxtb %=, %W0" },
+	{ Oextub,  Ki, "uxtb %W=, %W0" },
+	{ Oextsh,  Ki, "sxth %=, %W0" },
+	{ Oextuh,  Ki, "uxth %W=, %W0" },
+	{ Oextsw,  Ki, "sxtw %L=, %W0" },
+	{ Oextuw,  Ki, "mov %W=, %W0" },
+	{ Ostoreb, Kw, "strb %W0, %M1" },
+	{ Ostoreh, Kw, "strh %W0, %M1" },
+	{ Ostorew, Kw, "str %W0, %M1" },
+	{ Ostorel, Kw, "str %L0, %M1" },
+
+	{ Oacmp,   Ki, "cmp %0, %1" },
+	{ Oacmn,   Ki, "cmn %0, %1" },
+
 #define X(c) \
 	{ Oflag+c, Ki, "cset %=, " #c },
 #undef X
@@ -76,46 +105,61 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 	Con *pc;
 	unsigned n;
 
-	k = i->cls;
 	fputc('\t', f);
-Next:
-	while ((c = *s++) != '%')
-		if ( !c) {
-			fputc('\n', f);
-			return;
-		} else
-			fputc(c, f);
-	switch ((c = *s++)) {
-	default:
-		die("invalid escape");
-	case '=':
-	case '0':
-		r = c == '=' ? i->to : i->arg[0];
-		assert(isreg(r));
-		fputs(rname(r.val, k), f);
-		break;
-	case '1':
-		r = i->arg[1];
-		switch (rtype(r)) {
+
+	for (;;) {
+		k = i->cls;
+		while ((c = *s++) != '%')
+			if ( !c) {
+				fputc('\n', f);
+				return;
+			} else
+				fputc(c, f);
+	Switch:
+		switch ((c = *s++)) {
 		default:
-			die("invalid second argument");
-		case RTmp:
+			die("invalid escape");
+		case 'W':
+			k = Kw;
+			goto Switch;
+		case 'L':
+			k = Kl;
+			goto Switch;
+		case '=':
+		case '0':
+			r = c == '=' ? i->to : i->arg[0];
 			assert(isreg(r));
 			fputs(rname(r.val, k), f);
 			break;
-		case RCon:
-			pc = &fn->con[r.val];
-			assert(pc->type == CBits);
-			n = pc->bits.i;
-			if (n & 0xfff000)
-				fprintf(f, "#%u, lsl #12", n>>12);
-			else
-				fprintf(f, "#%u", n);
+		case '1':
+			r = i->arg[1];
+			switch (rtype(r)) {
+			default:
+				die("invalid second argument");
+			case RTmp:
+				assert(isreg(r));
+				fputs(rname(r.val, k), f);
+				break;
+			case RCon:
+				pc = &fn->con[r.val];
+				assert(pc->type == CBits);
+				n = pc->bits.i;
+				if (n & 0xfff000)
+					fprintf(f, "#%u, lsl #12", n>>12);
+				else
+					fprintf(f, "#%u", n);
+				break;
+			}
+			break;
+		case 'M':
+			c = *s++;
+			assert(c == '0' || c == '1');
+			r = i->arg[c - '0'];
+			assert(isreg(r) && "TODO emit non reg addresses");
+			fprintf(f, "[%s]", rname(r.val, Kl));
 			break;
 		}
-		break;
 	}
-	goto Next;
 }
 
 static void
@@ -172,7 +216,8 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			/* this linear search should really be a binary
 			 * search */
 			if (omap[o].op == NOp)
-				die("no match for %s(%d)", opdesc[i->op].name, i->cls);
+				die("no match for %s(%c)",
+					opdesc[i->op].name, "wlsd"[i->cls]);
 			if (omap[o].op == i->op)
 			if (omap[o].cls == i->cls || omap[o].cls == Ka
 			|| (omap[o].cls == Ki && KBASE(i->cls) == 0))
