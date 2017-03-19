@@ -1,27 +1,26 @@
 #include "../all.h"
 #include "x64.h"
 
-char *x_locprefix, *x_symprefix;
 
 #define CMP(X) \
-	X(Ciule,"be") \
-	X(Ciult,"b") \
-	X(Cisle,"le") \
-	X(Cislt,"l") \
-	X(Cisgt,"g") \
-	X(Cisge,"ge") \
-	X(Ciugt,"a") \
-	X(Ciuge,"ae") \
-	X(Cieq,"z") \
-	X(Cine,"nz") \
-	X(NCmpI+Cfle,"be") \
-	X(NCmpI+Cflt,"b") \
-	X(NCmpI+Cfgt,"a") \
-	X(NCmpI+Cfge,"ae") \
-	X(NCmpI+Cfeq,"z") \
-	X(NCmpI+Cfne,"nz") \
-	X(NCmpI+Cfo,"np") \
-	X(NCmpI+Cfuo,"p")
+	X(Ciule,      "be") \
+	X(Ciult,      "b")  \
+	X(Cisle,      "le") \
+	X(Cislt,      "l")  \
+	X(Cisgt,      "g")  \
+	X(Cisge,      "ge") \
+	X(Ciugt,      "a")  \
+	X(Ciuge,      "ae") \
+	X(Cieq,       "z")  \
+	X(Cine,       "nz") \
+	X(NCmpI+Cfle, "be") \
+	X(NCmpI+Cflt, "b")  \
+	X(NCmpI+Cfgt, "a")  \
+	X(NCmpI+Cfge, "ae") \
+	X(NCmpI+Cfeq, "z")  \
+	X(NCmpI+Cfne, "nz") \
+	X(NCmpI+Cfo,  "np") \
+	X(NCmpI+Cfuo, "p")
 
 enum {
 	SLong = 0,
@@ -166,9 +165,9 @@ emitcon(Con *con, FILE *f)
 	switch (con->type) {
 	case CAddr:
 		if (con->local)
-			fprintf(f, "%s%s", x_locprefix, con->label);
+			fprintf(f, "%s%s", gasloc, con->label);
 		else
-			fprintf(f, "%s%s", x_symprefix, con->label);
+			fprintf(f, "%s%s", gassym, con->label);
 		if (con->bits.i)
 			fprintf(f, "%+"PRId64, con->bits.i);
 		break;
@@ -369,7 +368,8 @@ emitins(Ins i, Fn *fn, FILE *f)
 			/* this linear search should really be a binary
 			 * search */
 			if (omap[o].op == NOp)
-				die("no match for %s(%d)", opdesc[i.op].name, i.cls);
+				die("no match for %s(%d)",
+					opdesc[i.op].name, "wlsd"[i.cls]);
 			if (omap[o].op == i.op)
 			if (omap[o].cls == i.cls
 			|| (omap[o].cls == Ki && KBASE(i.cls) == 0)
@@ -493,12 +493,12 @@ x_emitfn(Fn *fn, FILE *f)
 
 	fprintf(f, ".text\n");
 	if (fn->export)
-		fprintf(f, ".globl %s%s\n", x_symprefix, fn->name);
+		fprintf(f, ".globl %s%s\n", gassym, fn->name);
 	fprintf(f,
 		"%s%s:\n"
 		"\tpushq %%rbp\n"
 		"\tmovq %%rsp, %%rbp\n",
-		x_symprefix, fn->name
+		gassym, fn->name
 	);
 	fs = framesz(fn);
 	if (fs)
@@ -518,7 +518,7 @@ x_emitfn(Fn *fn, FILE *f)
 
 	for (lbl=0, b=fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
-			fprintf(f, "%sbb%d:\n", x_locprefix, id0+b->id);
+			fprintf(f, "%sbb%d:\n", gasloc, id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
 			emitins(*i, fn, f);
 		lbl = 1;
@@ -538,7 +538,7 @@ x_emitfn(Fn *fn, FILE *f)
 		Jmp:
 			if (b->s1 != b->link)
 				fprintf(f, "\tjmp %sbb%d\n",
-					x_locprefix, id0+b->s1->id);
+					gasloc, id0+b->s1->id);
 			else
 				lbl = 0;
 			break;
@@ -552,129 +552,11 @@ x_emitfn(Fn *fn, FILE *f)
 				} else
 					c = cmpneg(c);
 				fprintf(f, "\tj%s %sbb%d\n", ctoa[c],
-					x_locprefix, id0+b->s2->id);
+					gasloc, id0+b->s2->id);
 				goto Jmp;
 			}
 			die("unhandled jump %d", b->jmp.type);
 		}
 	}
 	id0 += fn->nblk;
-}
-
-void
-x_emitdat(Dat *d, FILE *f)
-{
-	static int align;
-	static char *dtoa[] = {
-		[DAlign] = ".align",
-		[DB] = "\t.byte",
-		[DH] = "\t.value",
-		[DW] = "\t.long",
-		[DL] = "\t.quad"
-	};
-
-	switch (d->type) {
-	case DStart:
-		align = 0;
-		fprintf(f, ".data\n");
-		break;
-	case DEnd:
-		break;
-	case DName:
-		if (!align)
-			fprintf(f, ".align 8\n");
-		if (d->export)
-			fprintf(f, ".globl %s%s\n", x_symprefix, d->u.str);
-		fprintf(f, "%s%s:\n", x_symprefix, d->u.str);
-		break;
-	case DZ:
-		fprintf(f, "\t.fill %"PRId64",1,0\n", d->u.num);
-		break;
-	default:
-		if (d->type == DAlign)
-			align = 1;
-
-		if (d->isstr) {
-			if (d->type != DB)
-				err("strings only supported for 'b' currently");
-			fprintf(f, "\t.ascii \"%s\"\n", d->u.str);
-		}
-		else if (d->isref) {
-			fprintf(f, "%s %s%+"PRId64"\n",
-				dtoa[d->type], d->u.ref.nam,
-				d->u.ref.off);
-		}
-		else {
-			fprintf(f, "%s %"PRId64"\n",
-				dtoa[d->type], d->u.num);
-		}
-		break;
-	}
-}
-
-typedef struct FBits FBits;
-
-struct FBits {
-	union {
-		int64_t n;
-		float f;
-		double d;
-	} bits;
-	int wide;
-	FBits *link;
-};
-
-static FBits *stash;
-
-int
-x_stashfp(int64_t n, int w)
-{
-	FBits **pb, *b;
-	int i;
-
-	/* does a dumb de-dup of fp constants
-	 * this should be the linker's job */
-	for (pb=&stash, i=0; (b=*pb); pb=&b->link, i++)
-		if (n == b->bits.n && w == b->wide)
-			return i;
-	b = emalloc(sizeof *b);
-	b->bits.n = n;
-	b->wide = w;
-	b->link = 0;
-	*pb = b;
-	return i;
-}
-
-void
-x_emitfin(FILE *f)
-{
-	FBits *b;
-	int i;
-
-	if (!stash)
-		return;
-	fprintf(f, "/* floating point constants */\n");
-	fprintf(f, ".data\n.align 8\n");
-	for (b=stash, i=0; b; b=b->link, i++)
-		if (b->wide)
-			fprintf(f,
-				"%sfp%d:\n"
-				"\t.quad %"PRId64
-				" /* %f */\n",
-				x_locprefix, i, b->bits.n,
-				b->bits.d
-			);
-	for (b=stash, i=0; b; b=b->link, i++)
-		if (!b->wide)
-			fprintf(f,
-				"%sfp%d:\n"
-				"\t.long %"PRId64
-				" /* %lf */\n",
-				x_locprefix, i, b->bits.n & 0xffffffff,
-				b->bits.f
-			);
-	while ((b=stash)) {
-		stash = b->link;
-		free(b);
-	}
 }

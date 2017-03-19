@@ -55,9 +55,4 @@ void xv_abi(Fn *);
 void x_isel(Fn *);
 
 /* emit.c */
-extern char *x_locprefix;
-extern char *x_symprefix;
 void x_emitfn(Fn *, FILE *);
-void x_emitdat(Dat *, FILE *);
-int x_stashfp(int64_t, int);
-void x_emitfin(FILE *);

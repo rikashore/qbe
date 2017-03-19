@@ -250,7 +250,7 @@ a_emitfn(Fn *fn, FILE *f)
 
 	fprintf(f, ".text\n");
 	if (fn->export)
-		fprintf(f, ".global %s\n", fn->name);
+		fprintf(f, ".globl %s\n", fn->name);
 	fprintf(f,
 		"%s:\n",
 		fn->name

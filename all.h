@@ -508,3 +508,10 @@ void spill(Fn *);
 
 /* rega.c */
 void rega(Fn *);
+
+/* gas.c */
+extern char *gasloc;
+extern char *gassym;
+void gasemitdat(Dat *, FILE *);
+int gasstashfp(int64_t, int);
+void gasemitfin(FILE *);

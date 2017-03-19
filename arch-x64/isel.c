@@ -78,7 +78,7 @@ fixarg(Ref *r, int k, int cpy, Fn *fn)
 		memset(&a, 0, sizeof a);
 		a.offset.type = CAddr;
 		a.offset.local = 1;
-		n = x_stashfp(fn->con[r0.val].bits.i, KWIDE(k));
+		n = gasstashfp(fn->con[r0.val].bits.i, KWIDE(k));
 		sprintf(a.offset.label, "fp%d", n);
 		fn->mem[fn->nmem-1] = a;
 	}

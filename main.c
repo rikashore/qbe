@@ -1,5 +1,7 @@
 #include "all.h"
+#define MAIN
 #include "arch-x64/x64.h" /* fixme */
+#include "arch-arm64/arm64.h" /* fixme */
 #include "config.h"
 #include <ctype.h>
 #include <getopt.h>
@@ -36,7 +38,7 @@ data(Dat *d)
 		fputs("/* end data */\n\n", outf);
 		freeall();
 	}
-	x_emitdat(d, outf);
+	gasemitdat(d, outf);
 }
 
 static void
@@ -138,12 +140,12 @@ main(int ac, char *av[])
 
 	switch (asm) {
 	case Gaself:
-		x_locprefix = ".L";
-		x_symprefix = "";
+		gasloc = ".L";
+		gassym = "";
 		break;
 	case Gasmacho:
-		x_locprefix = "L";
-		x_symprefix = "_";
+		gasloc = "L";
+		gassym = "_";
 		break;
 	}
 
@@ -163,7 +165,7 @@ main(int ac, char *av[])
 	} while (++optind < ac);
 
 	if (!dbg)
-		x_emitfin(outf);
+		gasemitfin(outf);
 
 	exit(0);
 }
