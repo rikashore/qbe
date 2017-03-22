@@ -1,92 +1,86 @@
 #include "../all.h"
 #include "arm64.h"
 
-typedef struct AClass AClass;
-typedef struct RAlloc RAlloc;
+typedef struct TClass Class;
+typedef struct Insl Insl;
 
-struct AClass {
-	char inmem;
+struct TClass {
+	char inmem; /* 0, 1, or 2 for scalar argument on the stack */
 	char ishfa;
 	struct {
 		char base;
 		char size;
 	} hfa;
-	uint64_t size;
 	int align;
+	uint64_t size;
 };
 
-struct RAlloc { /* todo, rename that */
+struct Insl {
 	Ins i;
-	RAlloc *link;
+	Insl *link;
 };
 
 static int
 isfloatv(Typ *t, char *cls)
 {
-	Field *fld;
-	int n, s;
+	Field *f;
+	uint n;
 
-	for (n=0; n<t->nunion; n++) {
-		fld = t->fields[n];
-		for (;; s++)
-			switch (seg[s].type) {
-			case FEnd:
-				goto Done;
+	for (n=0; n<t->nunion; n++)
+		for (f=t->fields[n]; f->type != FEnd; f++)
+			switch (f->type) {
 			case Fs:
-				if (*cls != -1 && *cls != Ks)
+				if (*cls == Kd)
 					return 0;
 				*cls = Ks;
 				break;
 			case Fd:
-				if (*cls != -1 && *cls != Kd)
+				if (*cls == Ks)
 					return 0;
 				*cls = Kd;
 				break;
 			case FTyp:
-				if (isfloatv(*typ[fld[s].len], cls))
+				if (isfloatv(&typ[f->len], cls))
 					break;
 			default:
 				return 0;
 			}
-	Done:	;
-	}
 	return 1;
 }
 
 static void
-typclass(AClass *a, Typ *t)
+typclass(Class *c, Typ *t)
 {
-	int cls, sz;
+	uint64_t sz;
+	int al;
 
 	sz = t->size;
-	al = 1u << t->align;
+	al = 1 << t->align;
 
 	/* the ABI requires sizes to be rounded
-	 * up to the nearest multiple of 8, moreover
-	 * it makes it easy load and store structures
-	 * in registers
+	 * up to the nearest multiple of 8
 	 */
 	if (al < 8)
 		al = 8;
 	sz = (sz + al-1) & -al;
 
-	a->size = sz;
-	a->align = t->align;
+	c->size = sz;
+	c->align = t->align;
 
 	if (t->dark || sz > 16 || sz == 0) {
 		/* large or unaligned structures are
 		 * required to be passed in memory
 		 */
-		a->inmem = 1;
+		c->inmem = 1;
 		return;
 	}
 
-	a->hfa.base = -1;
-	a->ishfa = isfloatv(t, &a->hfa.base));
-	if (a->hfa.base == Ks)
-		a->hfa.size = t->size / 4;
+	c->hfa.base = -1;
+	c->ishfa = isfloatv(t, &c->hfa.base);
+	if (c->hfa.base == Ks)
+		c->hfa.size = t->size / 4;
 	else
-		a->hfa.size = t->size / 8;
+		c->hfa.size = t->size / 8;
 }
 
 static void
@@ -108,29 +102,31 @@ blit(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
 	}
 }
 
+#if 0
 static int
-retr(Ref reg[4], AClass *aret)
+retr(Ref reg[4], Class *cret)
 {
 	int n, ca;
 
-	if (aret->ishfa) {
-		ca = aret->hfa.size << 2;
-		for (n=0; n<aret->hfa.size; n++)
-			reg[n] = V0+n;
+	if (cret->ishfa) {
+		ca = cret->hfa.size << 2;
+		for (n=0; n<cret->hfa.size; n++)
+			reg[n] = TMP(V0+n);
 	} else {
-		ca = aret->size / 8;
-		reg[0] = R0;
-		reg[1] = R1;
+		ca = cret->size / 8;
+		reg[0] = TMP(R0);
+		reg[1] = TMP(R1);
 	}
 	return ca;
 }
+#endif
 
 static void
 selret(Blk *b, Fn *fn)
 {
 	int i, j, k, s, ca;
-	Ref r, r0, reg[2];
-	AClass aret;
+	Ref r, r0;
+	Class cret;
 
 	j = b->jmp.type;
 
@@ -141,28 +137,28 @@ selret(Blk *b, Fn *fn)
 	b->jmp.type = Jret0;
 
 	if (j == Jretc) {
-		typclass(&aret, &typ[fn->retty]);
-		if (aret.inmem) {
+		typclass(&cret, &typ[fn->retty]);
+		if (cret.inmem) {
 			assert(rtype(fn->retr) == RTmp);
-			blit(fn->retr, 0, r0, aret.size, fn);
+			blit(fn->retr, 0, r0, cret.size, fn);
 			ca = 0;
-		} else if (aret.ishfa) {
-			k = aret.hfa.base;
-			s = 4 + 4 * (k == Kd).
-			for (i=0; i<aret.hfa.size; i++) {
+		} else if (cret.ishfa) {
+			k = cret.hfa.base;
+			s = 4 + 4 * (k == Kd);
+			for (i=0; i<cret.hfa.size; i++) {
 				r = newtmp("abi", k, fn);
 				emit(Oload, k, TMP(V0+i), r, R);
-				emit(Oadd Kl, r, r0, getcon(i*s, fn));
+				emit(Oadd, Kl, r, r0, getcon(i*s, fn));
 			}
-			ca = aret.hfa.size << 2;
+			ca = cret.hfa.size << 2;
 		} else {
-			if (aret.size > 8) {
+			if (cret.size > 8) {
 				r = newtmp("abi", Kl, fn);
 				emit(Oload, Kl, TMP(R1), r, R);
 				emit(Oadd, Kl, r, r0, getcon(8, fn));
 			}
 			emit(Oload, Kl, TMP(R0), r0, R);
-			ca = aret.size / 8;
+			ca = cret.size / 8;
 		}
 	} else {
 		k = j - Jretw;
@@ -179,59 +175,56 @@ selret(Blk *b, Fn *fn)
 }
 
 static int
-argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
+argsclass(Ins *i0, Ins *i1, Class *carg, Ref *env)
 {
-	int nint, ni, nsse, ns, n, *pn;
-	AClass *a;
+	int ngp, nfp, *pn;
+	Class *c;
 	Ins *i;
 
-	if (aret && aret->inmem)
-		nint = 5; /* hidden argument */
-	else
-		nint = 6;
-	nsse = 8;
-	for (i=i0, a=ac; i<i1; i++, a++)
-		switch (i->op - op + Oarg) {
+	ngp = 8;
+	nfp = 8;
+	for (i=i0, c=carg; i<i1; i++, c++)
+		switch (i->op) {
+		case Opar:
 		case Oarg:
 			if (KBASE(i->cls) == 0)
-				pn = &nint;
+				pn = &ngp;
 			else
-				pn = &nsse;
+				pn = &nfp;
 			if (*pn > 0) {
-				--*pn;
-				a->inmem = 0;
+				*pn -= 1;
+				c->inmem = 0;
 			} else
-				a->inmem = 2;
-			a->align = 3;
-			a->size = 8;
-			a->cls[0] = i->cls;
+				c->inmem = 2;
+			c->align = 3;
+			c->size = 8;
 			break;
+		case Oparc:
 		case Oargc:
-			n = i->arg[0].val;
-			typclass(a, &typ[n]);
-			if (a->inmem)
-				continue;
-			ni = ns = 0;
-			for (n=0; (uint)n*8<a->size; n++)
-				if (KBASE(a->cls[n]) == 0)
-					ni++;
-				else
-					ns++;
-			if (nint >= ni && nsse >= ns) {
-				nint -= ni;
-				nsse -= ns;
-			} else
-				a->inmem = 1;
+			typclass(c, &typ[i->arg[0].val]);
+			if (c->inmem)
+				break;
+			if (c->ishfa) {
+				nfp -= c->hfa.size;
+				pn = &nfp;
+			} else {
+				ngp -= c->size / 8;
+				pn = &ngp;
+			}
+			if (*pn < 0) {
+				*pn = 0;
+				c->inmem = 1;
+			}
+			break;
+		case Opare:
+			*env = i->to;
 			break;
 		case Oarge:
-			if (op == Opar)
-				*env = i->to;
-			else
-				*env = i->arg[0];
+			*env = i->arg[0];
 			break;
 		}
 
-	return ((6-nint) << 4) | ((8-nsse) << 8);
+	return ((8-ngp) << 5) | ((8-nfp) << 9);
 }
 
 int a_rsave[] = {
@@ -268,20 +261,20 @@ bits
 a_retregs(Ref r, int p[2])
 {
 	bits b;
-	int ni, nf;
+	int ngp, nfp;
 
 	assert(rtype(r) == RCall);
-	ni = r.val & 3;
-	nf = (r.val >> 2) & 7;
+	ngp = r.val & 3;
+	nfp = (r.val >> 2) & 7;
 	if (p) {
-		p[0] = ni;
-		p[1] = nf;
+		p[0] = ngp;
+		p[1] = nfp;
 	}
 	b = 0;
-	while (ni--)
-		b |= BIT(R0+ni);
-	while (nf--)
-		b |= BIT(V0+nf);
+	while (ngp--)
+		b |= BIT(R0+ngp);
+	while (nfp--)
+		b |= BIT(V0+nfp);
 	return b;
 }
 
@@ -289,22 +282,24 @@ bits
 a_argregs(Ref r, int p[2])
 {
 	bits b;
-	int ni, nf;
+	int ngp, nfp;
 
 	assert(rtype(r) == RCall);
-	ni = (r.val >> 5) & 15;
-	nf = (r.val >> 9) & 15;
+	ngp = (r.val >> 5) & 15;
+	nfp = (r.val >> 9) & 15;
 	if (p) {
-		p[0] = ni + ra;
-		p[1] = nf;
+		p[0] = ngp;
+		p[1] = nfp;
 	}
 	b = 0;
-	while (ni--)
-		b |= BIT(R0+ni);
-	while (nf--)
-		b |= BIT(V0+nf);
+	while (ngp--)
+		b |= BIT(R0+ngp);
+	while (nfp--)
+		b |= BIT(V0+nfp);
 	return b;
 }
+
+#if 0
 
 static Ref
 rarg(int ty, int *ni, int *ns)
@@ -728,3 +723,5 @@ xv_abi(Fn *fn)
 		printfn(fn, stderr);
 	}
 }
+
+#endif
