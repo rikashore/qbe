@@ -7,6 +7,7 @@ SRC      = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c \
            fold.c live.c spill.c rega.c gas.c
 AMD64SRC = amd64/targ.c amd64/sysv.c amd64/isel.c amd64/emit.c
 ARM64SRC = arm64/targ.c arm64/abi.c arm64/isel.c arm64/emit.c
+SRCALL   = $(SRC) $(AMD64SRC) $(ARM64SRC)
 
 AMD64OBJ = $(AMD64SRC:%.c=$(OBJDIR)/%.o)
 ARM64OBJ = $(ARM64SRC:%.c=$(OBJDIR)/%.o)
@@ -55,8 +56,11 @@ clean-gen: clean
 check: $(OBJDIR)/$(BIN)
 	tools/unit.sh all
 
+src:
+	@echo $(SRCALL)
+
 80:
-	@for F in $(SRC);                          \
+	@for F in $(SRCALL);                       \
 	do                                         \
 		awk "{                             \
 			gsub(/\\t/, \"        \"); \
@@ -65,4 +69,4 @@ check: $(OBJDIR)/$(BIN)
 		}" < $$F;                          \
 	done
 
-.PHONY: clean clean-gen check 80 install uninstall
+.PHONY: clean clean-gen check src 80 install uninstall
