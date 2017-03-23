@@ -250,11 +250,12 @@ MAKESURE(arrays_ok,
 /* layout of call's second argument (RCall)
  *
  *  29   13    9    5   2  0
- *  |0...00|xxxx|xxxx|xxx|xx|                  range
- *             |    |   |  ` gp regs returned (0..2)
- *             |    |   ` fp regs returned    (0..4)
- *             |    ` gp regs passed          (0..8)
- *              ` fp regs passed              (0..8)
+ *  |0.00|x|xxxx|xxxx|xxx|xx|                  range
+ *        |    |    |   |  ` gp regs returned (0..2)
+ *        |    |    |   ` fp regs returned    (0..4)
+ *        |    |    ` gp regs passed          (0..8)
+ *        |     ` fp regs passed              (0..8)
+ *        ` is x8 used                        (0..1)
  */
 
 bits
@@ -282,13 +283,14 @@ bits
 a_argregs(Ref r, int p[2])
 {
 	bits b;
-	int ngp, nfp;
+	int ngp, nfp, x8;
 
 	assert(rtype(r) == RCall);
 	ngp = (r.val >> 5) & 15;
 	nfp = (r.val >> 9) & 15;
+	x8 = (r.val >> 13) & 1;
 	if (p) {
-		p[0] = ngp;
+		p[0] = ngp + x8;
 		p[1] = nfp;
 	}
 	b = 0;
@@ -296,91 +298,81 @@ a_argregs(Ref r, int p[2])
 		b |= BIT(R0+ngp);
 	while (nfp--)
 		b |= BIT(V0+nfp);
-	return b;
+	return b | ((bits)x8 << R8);
 }
 
-#if 0
-
 static Ref
-rarg(int ty, int *ni, int *ns)
+rarg(int ty, int *ng, int *nf)
 {
 	if (KBASE(ty) == 0)
-		return TMP(xv_rsave[(*ni)++]);
+		return TMP(R0 + (*ng)++);
 	else
-		return TMP(XMM0 + (*ns)++);
+		return TMP(V0 + (*nf)++);
 }
 
 static void
-selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
+selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 {
 	Ins *i;
-	AClass *ac, *a, aret;
-	int ca, ni, ns, al, varc, envc;
-	uint stk, off;
+	Class *ca, *c, cret;
+	int cty, ng, nf, al, varc, envc;
+	uint64_t stk, off;
 	Ref r, r1, r2, reg[2], env;
-	RAlloc *ra;
+	Insl *il;
 
 	env = R;
-	ac = alloc((i1-i0) * sizeof ac[0]);
+	ca = alloc((i1-i0) * sizeof ca[0]);
 
-	if (!req(i1->arg[1], R)) {
-		assert(rtype(i1->arg[1]) == RType);
-		typclass(&aret, &typ[i1->arg[1].val]);
-		ca = argsclass(i0, i1, ac, Oarg, &aret, &env);
-	} else
-		ca = argsclass(i0, i1, ac, Oarg, 0, &env);
-
-	for (stk=0, a=&ac[i1-i0]; a>ac;)
-		if ((--a)->inmem) {
-			if (a->align > 4)
-				err("sysv abi requires alignments of 16 or less");
-			stk += a->size;
-			if (a->align == 4)
+	cty = argsclass(i0, i1, ca, &env);
+	for (stk=0, c=&ca[i1-i0]; c>ca;)
+		if ((--c)->inmem) {
+			if (c->align > 4)
+				err("arm abi requires alignments of 16 or less");
+			stk += c->size;
+			if (c->align == 4)
 				stk += stk & 15;
 		}
 	stk += stk & 15;
 	if (stk) {
-		r = getcon(-(int64_t)stk, fn);
-		emit(Osalloc, Kl, R, r, R);
+		r = getcon(stk, fn);
+		emit(Oadd, Kl, TMP(SP), TMP(SP), r);
 	}
 
 	if (!req(i1->arg[1], R)) {
-		if (aret.inmem) {
-			/* get the return location from eax
-			 * it saves one callee-save reg */
-			r1 = newtmp("abi", Kl, fn);
-			emit(Ocopy, Kl, i1->to, TMP(RAX), R);
-			ca += 1;
-		} else {
-			if (aret.size > 8) {
+		typclass(&cret, &typ[i1->arg[1].val]);
+		if (!cret.inmem) {
+			/* get shit out of registers, shit might
+			 * be in 1 or 2 gp regs, or up to 4 fp
+			 * regs.
+			if (cret.size > 8) {
 				r = newtmp("abi", Kl, fn);
-				aret.ref[1] = newtmp("abi", aret.cls[1], fn);
-				emit(Ostorel, 0, R, aret.ref[1], r);
+				cret.ref[1] = newtmp("abi", cret.cls[1], fn);
+				emit(Ostorel, 0, R, cret.ref[1], r);
 				emit(Oadd, Kl, r, i1->to, getcon(8, fn));
 			}
-			aret.ref[0] = newtmp("abi", aret.cls[0], fn);
-			emit(Ostorel, 0, R, aret.ref[0], i1->to);
-			ca += retr(reg, &aret);
-			if (aret.size > 8)
-				emit(Ocopy, aret.cls[1], aret.ref[1], reg[1], R);
-			emit(Ocopy, aret.cls[0], aret.ref[0], reg[0], R);
-			r1 = i1->to;
-		}
+			cret.ref[0] = newtmp("abi", cret.cls[0], fn);
+			emit(Ostorel, 0, R, cret.ref[0], i1->to);
+			ca += retr(reg, &cret);
+			if (cret.size > 8)
+				emit(Ocopy, cret.cls[1], cret.ref[1], reg[1], R);
+			emit(Ocopy, cret.cls[0], cret.ref[0], reg[0], R);
+		} else
+			cty |= 1 << 13;
 		/* allocate return pad */
-		ra = alloc(sizeof *ra);
+		il = alloc(sizeof *il);
 		/* specific to NAlign == 3 */
-		al = aret.align >= 2 ? aret.align - 2 : 0;
-		ra->i = (Ins){Oalloc+al, r1, {getcon(aret.size, fn)}, Kl};
-		ra->link = (*rap);
-		*rap = ra;
+		al = cret.align >= 2 ? cret.align - 2 : 0;
+		il->i = (Ins){Oalloc+al, i1->to, {getcon(cret.size, fn)}, Kl};
+		il->link = *ilp;
+		*ilp = il;
 	} else {
-		ra = 0;
+		il = 0;
 		if (KBASE(i1->cls) == 0) {
-			emit(Ocopy, i1->cls, i1->to, TMP(RAX), R);
-			ca += 1;
+			emit(Ocopy, i1->cls, i1->to, TMP(R0), R);
+			cty |= 1;
 		} else {
-			emit(Ocopy, i1->cls, i1->to, TMP(XMM0), R);
-			ca += 1 << 2;
+			emit(Ocopy, i1->cls, i1->to, TMP(V0), R);
+			cty |= 1 << 2;
 		}
 	}
 	envc = !req(R, env);
@@ -394,16 +386,16 @@ selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
 	if (varc)
 		emit(Ocopy, Kw, TMP(RAX), getcon((ca >> 8) & 15, fn), R);
 
-	ni = ns = 0;
-	if (ra && aret.inmem)
-		emit(Ocopy, Kl, rarg(Kl, &ni, &ns), ra->i.to, R); /* pass hidden argument */
+	ng = nf = 0;
+	if (il && cret.inmem)
+		emit(Ocopy, Kl, rarg(Kl, &ng, &nf), il->i.to, R); /* pass hidden argument */
 	for (i=i0, a=ac; i<i1; i++, a++) {
 		if (a->inmem)
 			continue;
-		r1 = rarg(a->cls[0], &ni, &ns);
+		r1 = rarg(a->cls[0], &ng, &nf);
 		if (i->op == Oargc) {
 			if (a->size > 8) {
-				r2 = rarg(a->cls[1], &ni, &ns);
+				r2 = rarg(a->cls[1], &ng, &nf);
 				r = newtmp("abi", Kl, fn);
 				emit(Oload, a->cls[1], r2, r, R);
 				emit(Oadd, Kl, r, i->arg[1], getcon(8, fn));
@@ -434,18 +426,20 @@ selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
 	emit(Osalloc, Kl, r, getcon(stk, fn), R);
 }
 
+#if 0
+
 static int
 selpar(Fn *fn, Ins *i0, Ins *i1)
 {
 	AClass *ac, *a, aret;
 	Ins *i;
-	int ni, ns, s, al, fa;
+	int ng, nf, s, al, fa;
 	Ref r, env;
 
 	env = R;
 	ac = alloc((i1-i0) * sizeof ac[0]);
 	curi = &insb[NIns];
-	ni = ns = 0;
+	ng = nf = 0;
 
 	if (fn->retty >= 0) {
 		typclass(&aret, &typ[fn->retty]);
@@ -471,7 +465,7 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 
 	if (fn->retty >= 0 && aret.inmem) {
 		r = newtmp("abi", Kl, fn);
-		emit(Ocopy, Kl, r, rarg(Kl, &ni, &ns), R);
+		emit(Ocopy, Kl, r, rarg(Kl, &ng, &nf), R);
 		fn->retr = r;
 	}
 
@@ -490,11 +484,11 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 			s += 2;
 			continue;
 		}
-		r = rarg(a->cls[0], &ni, &ns);
+		r = rarg(a->cls[0], &ng, &nf);
 		if (i->op == Oparc) {
 			emit(Ocopy, Kl, a->ref[0], r, R);
 			if (a->size > 8) {
-				r = rarg(a->cls[1], &ni, &ns);
+				r = rarg(a->cls[1], &ng, &nf);
 				emit(Ocopy, Kl, a->ref[1], r, R);
 			}
 		} else
@@ -505,154 +499,6 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 		emit(Ocopy, Kl, env, TMP(RAX), R);
 
 	return fa | (s*4)<<12;
-}
-
-static Blk *
-split(Fn *fn, Blk *b)
-{
-	Blk *bn;
-
-	++fn->nblk;
-	bn = blknew();
-	bn->nins = &insb[NIns] - curi;
-	idup(&bn->ins, curi, bn->nins);
-	curi = &insb[NIns];
-	bn->visit = ++b->visit;
-	snprintf(bn->name, NString, "%s.%d", b->name, b->visit);
-	bn->loop = b->loop;
-	bn->link = b->link;
-	b->link = bn;
-	return bn;
-}
-
-static void
-chpred(Blk *b, Blk *bp, Blk *bp1)
-{
-	Phi *p;
-	uint a;
-
-	for (p=b->phi; p; p=p->link) {
-		for (a=0; p->blk[a]!=bp; a++)
-			assert(a+1<p->narg);
-		p->blk[a] = bp1;
-	}
-}
-
-void
-selvaarg(Fn *fn, Blk *b, Ins *i)
-{
-	Ref loc, lreg, lstk, nr, r0, r1, c4, c8, c16, c, ap;
-	Blk *b0, *bstk, *breg;
-	int isint;
-
-	c4 = getcon(4, fn);
-	c8 = getcon(8, fn);
-	c16 = getcon(16, fn);
-	ap = i->arg[0];
-	isint = KBASE(i->cls) == 0;
-
-	/* @b [...]
-	       r0 =l add ap, (0 or 4)
-	       nr =l loadsw r0
-	       r1 =w cultw nr, (48 or 176)
-	       jnz r1, @breg, @bstk
-	   @breg
-	       r0 =l add ap, 16
-	       r1 =l loadl r0
-	       lreg =l add r1, nr
-	       r0 =w add nr, (8 or 16)
-	       r1 =l add ap, (0 or 4)
-	       storew r0, r1
-	   @bstk
-	       r0 =l add ap, 8
-	       lstk =l loadl r0
-	       r1 =l add lstk, 8
-	       storel r1, r0
-	   @b0
-	       %loc =l phi @breg %lreg, @bstk %lstk
-	       i->to =(i->cls) load %loc
-	*/
-
-	loc = newtmp("abi", Kl, fn);
-	emit(Oload, i->cls, i->to, loc, R);
-	b0 = split(fn, b);
-	b0->jmp = b->jmp;
-	b0->s1 = b->s1;
-	b0->s2 = b->s2;
-	if (b->s1)
-		chpred(b->s1, b, b0);
-	if (b->s2 && b->s2 != b->s1)
-		chpred(b->s2, b, b0);
-
-	lreg = newtmp("abi", Kl, fn);
-	nr = newtmp("abi", Kl, fn);
-	r0 = newtmp("abi", Kw, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorew, Kw, R, r0, r1);
-	emit(Oadd, Kl, r1, ap, isint ? CON_Z : c4);
-	emit(Oadd, Kw, r0, nr, isint ? c8 : c16);
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Oadd, Kl, lreg, r1, nr);
-	emit(Oload, Kl, r1, r0, R);
-	emit(Oadd, Kl, r0, ap, c16);
-	breg = split(fn, b);
-	breg->jmp.type = Jjmp;
-	breg->s1 = b0;
-
-	lstk = newtmp("abi", Kl, fn);
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, lstk, c8);
-	emit(Oload, Kl, lstk, r0, R);
-	emit(Oadd, Kl, r0, ap, c8);
-	bstk = split(fn, b);
-	bstk->jmp.type = Jjmp;
-	bstk->s1 = b0;
-
-	b0->phi = alloc(sizeof *b0->phi);
-	*b0->phi = (Phi){
-		.cls = Kl, .to = loc,
-		.narg = 2,
-		.blk = {bstk, breg},
-		.arg = {lstk, lreg},
-	};
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kw, fn);
-	b->jmp.type = Jjnz;
-	b->jmp.arg = r1;
-	b->s1 = breg;
-	b->s2 = bstk;
-	c = getcon(isint ? 48 : 176, fn);
-	emit(Ocmpw+Ciult, Kw, r1, nr, c);
-	emit(Oloadsw, Kl, nr, r0, R);
-	emit(Oadd, Kl, r0, ap, isint ? CON_Z : c4);
-}
-
-void
-selvastart(Fn *fn, int fa, Ref ap)
-{
-	Ref r0, r1;
-	int gp, fp, sp;
-
-	gp = ((fa >> 4) & 15) * 8;
-	fp = 48 + ((fa >> 8) & 15) * 16;
-	sp = fa >> 12;
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, TMP(RBP), getcon(-176, fn));
-	emit(Oadd, Kl, r0, ap, getcon(16, fn));
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, TMP(RBP), getcon(sp, fn));
-	emit(Oadd, Kl, r0, ap, getcon(8, fn));
-	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorew, Kw, R, getcon(fp, fn), r0);
-	emit(Oadd, Kl, r0, ap, getcon(4, fn));
-	emit(Ostorew, Kw, R, getcon(gp, fn), ap);
 }
 
 void
@@ -702,10 +548,8 @@ xv_abi(Fn *fn)
 				i = i0;
 				break;
 			case Ovastart:
-				selvastart(fn, fa, i->arg[0]);
-				break;
 			case Ovaarg:
-				selvaarg(fn, b, i);
+				die("vastart and vaarg are todo for arm");
 				break;
 			case Oarg:
 			case Oargc:
