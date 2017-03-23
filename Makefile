@@ -5,12 +5,12 @@ OBJDIR = obj
 
 SRC      = main.c util.c parse.c cfg.c mem.c ssa.c alias.c load.c copy.c \
            fold.c live.c spill.c rega.c gas.c
-X64SRC   = arch-x64/targ.c arch-x64/sysv.c arch-x64/isel.c arch-x64/emit.c
-ARM64SRC = arch-arm64/targ.c arch-arm64/isel.c arch-arm64/emit.c
+AMD64SRC = amd64/targ.c amd64/sysv.c amd64/isel.c amd64/emit.c
+ARM64SRC = arm64/targ.c arm64/abi.c arm64/isel.c arm64/emit.c
 
-X64OBJ   = $(X64SRC:%.c=$(OBJDIR)/%.o)
+AMD64OBJ = $(AMD64SRC:%.c=$(OBJDIR)/%.o)
 ARM64OBJ = $(ARM64SRC:%.c=$(OBJDIR)/%.o)
-OBJ      = $(SRC:%.c=$(OBJDIR)/%.o) $(X64OBJ) $(ARM64OBJ)
+OBJ      = $(SRC:%.c=$(OBJDIR)/%.o) $(AMD64OBJ) $(ARM64OBJ)
 
 CFLAGS += -Wall -Wextra -std=c99 -g -pedantic
 
@@ -24,14 +24,14 @@ $(OBJDIR)/%.o: %.c $(OBJDIR)/timestamp
 
 $(OBJDIR)/timestamp:
 	@mkdir -p $(OBJDIR)
-	@mkdir -p $(OBJDIR)/arch-x64
-	@mkdir -p $(OBJDIR)/arch-arm64
+	@mkdir -p $(OBJDIR)/amd64
+	@mkdir -p $(OBJDIR)/arm64
 	@touch $@
 
 $(OBJ): all.h ops.h
-$(X64OBJ): arch-x64/x64.h
-$(ARM64OBJ): arch-arm64/arm64.h
-obj/main.o: config.h arch-x64/x64.h arch-arm64/arm64.h # fixme
+$(AMD64OBJ): amd64/all.h
+$(ARM64OBJ): arm64/all.h
+obj/main.o: config.h amd64/all.h arm64/all.h # fixme
 
 config.h:
 	@case `uname` in                                 \

@@ -1,5 +1,4 @@
-#include "../all.h"
-#include "arm64.h"
+#include "all.h"
 
 #define CMP(X) \
 	X(Cieq,       "eq") \
@@ -187,7 +186,7 @@ loadcon(Con *c, int r, int k, FILE *f)
 	assert(c->type == CBits);
 	if (!w)
 		n = (int32_t)n;
-	if ((n | 0xffff) == -1 || a_logimm(n, k)) {
+	if ((n | 0xffff) == -1 || arm64_logimm(n, k)) {
 		fprintf(f, "\tmov %s, #%"PRIi64"\n", rn, n);
 	} else {
 		fprintf(f, "\tmov %s, #%d\n",
@@ -236,7 +235,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 }
 
 void
-a_emitfn(Fn *fn, FILE *f)
+arm64_emitfn(Fn *fn, FILE *f)
 {
 	static char *ctoa[] = {
 	#define X(c, s) [c] = s,

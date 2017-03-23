@@ -1,3 +1,5 @@
+#include "../all.h"
+
 enum Reg {
 	RAX = RXX+1, /* caller-save */
 	RCX,
@@ -45,14 +47,14 @@ enum Reg {
 MAKESURE(Reg_not_tmp, XMM15 < (int)Tmp0);
 
 /* sysv.c (abi) */
-extern int xv_rsave[];
-extern int xv_rclob[];
-bits xv_retregs(Ref, int[2]);
-bits xv_argregs(Ref, int[2]);
-void xv_abi(Fn *);
+extern int amd64_sysv_rsave[];
+extern int amd64_sysv_rclob[];
+bits amd64_sysv_retregs(Ref, int[2]);
+bits amd64_sysv_argregs(Ref, int[2]);
+void amd64_sysv_abi(Fn *);
 
 /* isel.c */
-void x_isel(Fn *);
+void amd64_isel(Fn *);
 
 /* emit.c */
-void x_emitfn(Fn *, FILE *);
+void amd64_emitfn(Fn *, FILE *);

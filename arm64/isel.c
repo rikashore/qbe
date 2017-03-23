@@ -1,5 +1,4 @@
-#include "../all.h"
-#include "arm64.h"
+#include "all.h"
 
 enum Imm {
 	Iother,
@@ -38,7 +37,7 @@ imm(Con *c, int w, int64_t *pn)
 }
 
 int
-a_logimm(uint64_t x, int k)
+arm64_logimm(uint64_t x, int k)
 {
 	uint64_t n;
 
@@ -190,7 +189,7 @@ seljmp(Blk *b, Fn *fn)
 }
 
 void
-a_isel(Fn *fn)
+arm64_isel(Fn *fn)
 {
 	Blk *b;
 	Ins *i;

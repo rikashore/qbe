@@ -396,9 +396,6 @@ struct Dat {
 	char export;
 };
 
-/* available targets */
-extern Target T_x64_sysv;
-
 /* main.c */
 extern Target T;
 extern char debug['Z'+1];

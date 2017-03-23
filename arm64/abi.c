@@ -1,5 +1,4 @@
-#include "../all.h"
-#include "arm64.h"
+#include "all.h"
 
 typedef struct TClass Class;
 typedef struct Insl Insl;
@@ -83,14 +82,11 @@ typclass(Class *c, Typ *t)
 
 	c->hfa.base = -1;
 	c->ishfa = isfloatv(t, &c->hfa.base);
-	if (c->hfa.base == Ks)
-		c->hfa.size = t->size / 4;
-	else
-		c->hfa.size = t->size / 8;
+	c->hfa.size = c->hfa.base == Ks ? t->size/4 : t->size/8;
 }
 
 static void
-blit(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
+blit8(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
 {
 	Ref r, r1;
 	uint boff;
@@ -186,7 +182,7 @@ selret(Blk *b, Fn *fn)
 		typclass(&cret, &typ[fn->retty]);
 		if (cret.inmem) {
 			assert(rtype(fn->retr) == RTmp);
-			blit(fn->retr, 0, r, cret.size, fn);
+			blit8(fn->retr, 0, r, cret.size, fn);
 			cty = 0;
 		} else {
 			gp = gpreg;
@@ -423,7 +419,7 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 		if (i->op == Oargc) {
 			if (c->align == 4)
 				off += off & 15;
-			blit(TMP(SP), off, i->arg[1], c->size, fn);
+			blit8(TMP(SP), off, i->arg[1], c->size, fn);
 		} else {
 			r1 = newtmp("abi", Kl, fn);
 			emit(Ostorel, 0, R, i->arg[0], r1);

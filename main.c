@@ -1,10 +1,11 @@
-#include "all.h"
 #define MAIN
-#include "arch-x64/x64.h" /* fixme */
-#include "arch-arm64/arm64.h" /* fixme */
+#include "amd64/all.h" /* fixme */
+#include "arm64/all.h" /* fixme */
 #include "config.h"
 #include <ctype.h>
 #include <getopt.h>
+
+extern Target T_amd64_sysv, T_arm64;
 
 Target T;
 
@@ -67,10 +68,10 @@ func(Fn *fn)
 	copy(fn);
 	filluse(fn);
 	fold(fn);
-	xv_abi(fn);
+	amd64_sysv_abi(fn);
 	fillpreds(fn);
 	filluse(fn);
-	x_isel(fn);
+	amd64_isel(fn);
 	fillrpo(fn);
 	filllive(fn);
 	fillcost(fn);
@@ -88,7 +89,7 @@ func(Fn *fn)
 		} else
 			fn->rpo[n]->link = fn->rpo[n+1];
 	if (!dbg) {
-		x_emitfn(fn, outf);
+		amd64_emitfn(fn, outf);
 		fprintf(outf, "/* end function %s */\n\n", fn->name);
 	} else
 		fprintf(stderr, "\n");
@@ -103,7 +104,7 @@ main(int ac, char *av[])
 	int c, asm;
 
 	asm = Defaultasm;
-	T = T_x64_sysv;
+	T = T_amd64_sysv;
 	outf = stdout;
 	while ((c = getopt(ac, av, "hd:o:G:")) != -1)
 		switch (c) {

@@ -1,5 +1,4 @@
-#include "../all.h"
-#include "x64.h"
+#include "all.h"
 
 typedef struct AClass AClass;
 typedef struct RAlloc RAlloc;
@@ -232,16 +231,16 @@ argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
 	return ((6-nint) << 4) | ((8-nsse) << 8);
 }
 
-int xv_rsave[] = {
+int amd64_sysv_rsave[] = {
 	RDI, RSI, RDX, RCX, R8, R9, R10, R11, RAX,
 	XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
 	XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, -1
 };
-int xv_rclob[] = {RBX, R12, R13, R14, R15, -1};
+int amd64_sysv_rclob[] = {RBX, R12, R13, R14, R15, -1};
 
 MAKESURE(sysv_arrays_ok,
-	sizeof xv_rsave == (NGPS+NFPS+1) * sizeof(int) &&
-	sizeof xv_rclob == (NCLR+1) * sizeof(int)
+	sizeof amd64_sysv_rsave == (NGPS+NFPS+1) * sizeof(int) &&
+	sizeof amd64_sysv_rclob == (NCLR+1) * sizeof(int)
 );
 
 /* layout of call's second argument (RCall)
@@ -256,7 +255,7 @@ MAKESURE(sysv_arrays_ok,
  */
 
 bits
-xv_retregs(Ref r, int p[2])
+amd64_sysv_retregs(Ref r, int p[2])
 {
 	bits b;
 	int ni, nf;
@@ -281,7 +280,7 @@ xv_retregs(Ref r, int p[2])
 }
 
 bits
-xv_argregs(Ref r, int p[2])
+amd64_sysv_argregs(Ref r, int p[2])
 {
 	bits b;
 	int j, ni, nf, ra;
@@ -292,7 +291,7 @@ xv_argregs(Ref r, int p[2])
 	nf = (r.val >> 8) & 15;
 	ra = (r.val >> 12) & 1;
 	for (j=0; j<ni; j++)
-		b |= BIT(xv_rsave[j]);
+		b |= BIT(amd64_sysv_rsave[j]);
 	for (j=0; j<nf; j++)
 		b |= BIT(XMM0+j);
 	if (p) {
@@ -306,7 +305,7 @@ static Ref
 rarg(int ty, int *ni, int *ns)
 {
 	if (KBASE(ty) == 0)
-		return TMP(xv_rsave[(*ni)++]);
+		return TMP(amd64_sysv_rsave[(*ni)++]);
 	else
 		return TMP(XMM0 + (*ns)++);
 }
@@ -657,7 +656,7 @@ selvastart(Fn *fn, int fa, Ref ap)
 }
 
 void
-xv_abi(Fn *fn)
+amd64_sysv_abi(Fn *fn)
 {
 	Blk *b;
 	Ins *i, *i0, *ip;

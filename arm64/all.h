@@ -1,5 +1,7 @@
 #ifndef MAIN
 
+#include "../all.h"
+
 enum Reg {
 	R0 = RXX + 1,
 	     R1,  R2,  R3,  R4,  R5,  R6,  R7,
@@ -22,9 +24,15 @@ MAKESURE(Reg_not_tmp, V30 < (int)Tmp0);
 
 #endif
 
+/* abi.c */
+extern int arm64_rsave[];
+extern int arm64_rclob[];
+bits arm64_retregs(Ref, int[2]);
+bits arm64_argregs(Ref, int[2]);
+
 /* isel.c */
-int a_logimm(uint64_t, int);
-void a_isel(Fn *);
+int arm64_logimm(uint64_t, int);
+void arm64_isel(Fn *);
 
 /* emit.c */
-void a_emitfn(Fn *, FILE *);
+void arm64_emitfn(Fn *, FILE *);

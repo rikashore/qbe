@@ -1,5 +1,4 @@
-#include "../all.h"
-#include "x64.h"
+#include "all.h"
 
 
 #define CMP(X) \
@@ -472,14 +471,14 @@ framesz(Fn *fn)
 
 	/* specific to NAlign == 3 */
 	for (i=0, o=0; i<NCLR; i++)
-		o ^= 1 & (fn->reg >> xv_rclob[i]);
+		o ^= 1 & (fn->reg >> amd64_sysv_rclob[i]);
 	f = fn->slot;
 	f = (f + 3) & -4;
 	return 4*f + 8*o + 176*fn->vararg;
 }
 
 void
-x_emitfn(Fn *fn, FILE *f)
+amd64_emitfn(Fn *fn, FILE *f)
 {
 	static char *ctoa[] = {
 	#define X(c, s) [c] = s,
@@ -505,12 +504,12 @@ x_emitfn(Fn *fn, FILE *f)
 		fprintf(f, "\tsub $%d, %%rsp\n", fs);
 	if (fn->vararg) {
 		o = -176;
-		for (r=xv_rsave; r<&xv_rsave[6]; r++, o+=8)
+		for (r=amd64_sysv_rsave; r<&amd64_sysv_rsave[6]; r++, o+=8)
 			fprintf(f, "\tmovq %%%s, %d(%%rbp)\n", rname[*r][0], o);
 		for (n=0; n<8; ++n, o+=16)
 			fprintf(f, "\tmovaps %%xmm%d, %d(%%rbp)\n", n, o);
 	}
-	for (r=xv_rclob; r<&xv_rclob[NCLR]; r++)
+	for (r=amd64_sysv_rclob; r<&amd64_sysv_rclob[NCLR]; r++)
 		if (fn->reg & BIT(*r)) {
 			itmp.arg[0] = TMP(*r);
 			emitf("pushq %L0", &itmp, fn, f);
@@ -524,7 +523,7 @@ x_emitfn(Fn *fn, FILE *f)
 		lbl = 1;
 		switch (b->jmp.type) {
 		case Jret0:
-			for (r=&xv_rclob[NCLR]; r>xv_rclob;)
+			for (r=&amd64_sysv_rclob[NCLR]; r>amd64_sysv_rclob;)
 				if (fn->reg & BIT(*--r)) {
 					itmp.arg[0] = TMP(*r);
 					emitf("popq %L0", &itmp, fn, f);

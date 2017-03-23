@@ -1,5 +1,4 @@
-#include "../all.h"
-#include "x64.h"
+#include "all.h"
 #include <limits.h>
 
 /* For x86_64, do the following:
@@ -548,7 +547,7 @@ amatch(Addr *a, Ref r, ANum *ai, Fn *fn, int top)
  * requires use counts (as given by parsing)
  */
 void
-x_isel(Fn *fn)
+amd64_isel(Fn *fn)
 {
 	Blk *b, **sb;
 	Ins *i;
