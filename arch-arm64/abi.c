@@ -20,6 +20,9 @@ struct Insl {
 	Insl *link;
 };
 
+static int gpreg[] = {R0, R1, R2, R3, R4, R5, R6, R7};
+static int fpreg[] = {V0, V1, V2, V3, V4, V5, V6, V7};
+
 static int
 isfloatv(Typ *t, char *cls)
 {
@@ -105,30 +108,70 @@ blit(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
 	}
 }
 
-#if 0
-static int
-retr(Ref reg[4], Class *cret)
+static uint
+cregs(Class *c, int **gp, int **fp, int reg[], int cls[])
 {
-	int n, ca;
+	uint n;
 
-	if (cret->ishfa) {
-		ca = cret->hfa.size << 2;
-		for (n=0; n<cret->hfa.size; n++)
-			reg[n] = TMP(V0+n);
-	} else {
-		ca = cret->size / 8;
-		reg[0] = TMP(R0);
-		reg[1] = TMP(R1);
-	}
-	return ca;
+	if (c->ishfa)
+		for (n=0; n<c->hfa.size; n++) {
+			reg[n] = *(*fp)++;
+			cls[n] = c->hfa.base;
+		}
+	else
+		for (n=0; n<c->size/8; n++) {
+			reg[n] = *(*gp)++;
+			cls[n] = Kl;
+		}
+	return n;
 }
-#endif
+
+static void
+stregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
+{
+	static int st[] = {
+		[Kw] = Ostorew, [Kl] = Ostorel,
+		[Ks] = Ostores, [Kd] = Ostored
+	};
+	int i;
+	uint64_t off;
+	Ref r[n], r1;
+
+	assert(n <= 4);
+	off = 0;
+	for (i=0; i<n; i++) {
+		r[n] = newtmp("abi", cls[i], fn);
+		r1 = newtmp("abi", Kl, fn);
+		emit(st[cls[i]], 0, R, r[n], r1);
+		emit(Oadd, Kl, r1, mem, getcon(off, fn));
+		off += 4 << KWIDE(cls[i]);
+	}
+	for (i=0; i<n; i++)
+		emit(Ocopy, Kl, r[n], TMP(reg[n]), R);
+}
+
+static void
+ldregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
+{
+	int i;
+	uint64_t off;
+	Ref r1;
+
+	off = 0;
+	for (i=0; i<n; i++) {
+		r1 = newtmp("abi", Kl, fn);
+		emit(Oload, cls[i], TMP(reg[i]), r1, R);
+		emit(Oadd, Kl, r1, mem, getcon(off, fn));
+		off += 4 << KWIDE(cls[i]);
+	}
+}
 
 static void
 selret(Blk *b, Fn *fn)
 {
-	int i, j, k, s, ca;
-	Ref r, r0;
+	int j, k, cty, *gp, *fp, reg[4], cls[4];
+	uint n;
+	Ref r;
 	Class cret;
 
 	j = b->jmp.type;
@@ -136,45 +179,34 @@ selret(Blk *b, Fn *fn)
 	if (!isret(j) || j == Jret0)
 		return;
 
-	r0 = b->jmp.arg;
+	r = b->jmp.arg;
 	b->jmp.type = Jret0;
 
 	if (j == Jretc) {
 		typclass(&cret, &typ[fn->retty]);
 		if (cret.inmem) {
 			assert(rtype(fn->retr) == RTmp);
-			blit(fn->retr, 0, r0, cret.size, fn);
-			ca = 0;
-		} else if (cret.ishfa) {
-			k = cret.hfa.base;
-			s = 4 + 4 * (k == Kd);
-			for (i=0; i<cret.hfa.size; i++) {
-				r = newtmp("abi", k, fn);
-				emit(Oload, k, TMP(V0+i), r, R);
-				emit(Oadd, Kl, r, r0, getcon(i*s, fn));
-			}
-			ca = cret.hfa.size << 2;
+			blit(fn->retr, 0, r, cret.size, fn);
+			cty = 0;
 		} else {
-			if (cret.size > 8) {
-				r = newtmp("abi", Kl, fn);
-				emit(Oload, Kl, TMP(R1), r, R);
-				emit(Oadd, Kl, r, r0, getcon(8, fn));
-			}
-			emit(Oload, Kl, TMP(R0), r0, R);
-			ca = cret.size / 8;
+			gp = gpreg;
+			fp = fpreg;
+			n = cregs(&cret, &gp, &fp, reg, cls);
+			ldregs(reg, cls, n, r, fn);
+			cty = (fp - fpreg) << 2 | (gp - gpreg);
 		}
 	} else {
 		k = j - Jretw;
 		if (KBASE(k) == 0) {
-			emit(Ocopy, k, TMP(R0), r0, R);
-			ca = 1;
+			emit(Ocopy, k, TMP(R0), r, R);
+			cty = 1;
 		} else {
-			emit(Ocopy, k, TMP(V0), r0, R);
-			ca = 1 << 2;
+			emit(Ocopy, k, TMP(V0), r, R);
+			cty = 1 << 2;
 		}
 	}
 
-	b->jmp.arg = CALL(ca);
+	b->jmp.arg = CALL(cty);
 }
 
 static int
@@ -230,7 +262,7 @@ argsclass(Ins *i0, Ins *i1, Class *carg, Ref *env)
 	return ((8-ngp) << 5) | ((8-nfp) << 9);
 }
 
-int a_rsave[] = {
+int arm64_rsave[] = {
 	R0,  R1,  R2,  R3,  R4,  R5,  R6,  R7,
 	R8,  R9,  R10, R11, R12, R13, R14, R15,
 	IP0, IP1, R18,
@@ -239,15 +271,15 @@ int a_rsave[] = {
 	V24, V25, V26, V27, V28, V29, V30,
 	-1
 };
-int a_rclob[] = {
+int arm64_rclob[] = {
 	R19, R20, R21, R22, R23, R24, R25, R26,
 	R27, R28,
 	V8,  V9,  V10, V11, V12, V13, V14, V15,
 	-1
 };
 MAKESURE(arrays_ok,
-	sizeof a_rsave == (NGPS+NFPS+1) * sizeof(int) &&
-	sizeof a_rclob == (NCLR+1) * sizeof(int)
+	sizeof arm64_rsave == (NGPS+NFPS+1) * sizeof(int) &&
+	sizeof arm64_rclob == (NCLR+1) * sizeof(int)
 );
 
 /* layout of call's second argument (RCall)
@@ -262,7 +294,7 @@ MAKESURE(arrays_ok,
  */
 
 bits
-a_retregs(Ref r, int p[2])
+arm64_retregs(Ref r, int p[2])
 {
 	bits b;
 	int ngp, nfp;
@@ -283,7 +315,7 @@ a_retregs(Ref r, int p[2])
 }
 
 bits
-a_argregs(Ref r, int p[2])
+arm64_argregs(Ref r, int p[2])
 {
 	bits b;
 	int ngp, nfp, x8;
@@ -305,50 +337,8 @@ a_argregs(Ref r, int p[2])
 }
 
 static void
-stregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
-{
-	static int st[] = {
-		[Kw] = Ostorew, [Kl] = Ostorel,
-		[Ks] = Ostores, [Kd] = Ostored
-	};
-	int i;
-	uint64_t off;
-	Ref r[n], r1;
-
-	assert(n <= 4);
-	off = 0;
-	for (i=0; i<n; i++) {
-		r[n] = newtmp("abi", cls[i], fn);
-		r1 = newtmp("abi", Kl, fn);
-		emit(st[cls[i]], 0, R, r[n], r1);
-		emit(Oadd, Kl, r1, mem, getcon(off, fn));
-		off += 4 << KWIDE(cls[i]);
-	}
-	for (i=0; i<n; i++)
-		emit(Ocopy, Kl, r[n], TMP(reg[n]), R);
-}
-
-static void
-ldregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
-{
-	int i;
-	uint64_t off;
-	Ref r1;
-
-	off = 0;
-	for (i=0; i<n; i++) {
-		r1 = newtmp("abi", Kl, fn);
-		emit(Oload, cls[i], TMP(reg[i]), r1, R);
-		emit(Oadd, Kl, r1, mem, getcon(off, fn));
-		off += 4 << KWIDE(cls[i]);
-	}
-}
-
-static void
 selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 {
-	static int gpreg[] = {R0, R1, R2, R3, R4, R5, R6, R7};
-	static int fpreg[] = {V0, V1, V2, V3, V4, V5, V6, V7};
 	Ins *i;
 	Class *ca, *c, cret;
 	int cty, *fp, *gp, al, reg[4], cls[4], envc;
@@ -378,19 +368,11 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 		if (cret.inmem) {
 			cty |= 1 << 13;
 		} else {
-			if (cret.ishfa)
-				for (n=0; n<cret.hfa.size; n++) {
-					reg[n] = fpreg[n];
-					cls[n] = cret.hfa.base;
-					cty += 4;
-				}
-			else
-				for (n=0; n<cret.size/8; n++) {
-					reg[n] = gpreg[n];
-					cls[n] = Kl;
-					cty += 1;
-				}
+			gp = gpreg;
+			fp = fpreg;
+			n = cregs(&cret, &gp, &fp, reg, cls);
 			stregs(reg, cls, n, i1->to, fn);
+			cty |= (fp - fpreg) << 2 | (gp - gpreg);
 		}
 		/* allocate return pad */
 		il = alloc(sizeof *il);
@@ -418,21 +400,12 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 	gp = gpreg;
 	fp = fpreg;
 	if (il && cret.inmem)
-		emit(Ocopy, Kl, TMP(R8), il->i.to, R); /* pass hidden argument */
+		emit(Ocopy, Kl, TMP(R8), il->i.to, R); /* struct return argument */
 	for (i=i0, c=ca; i<i1; i++, c++) {
 		if (c->inmem)
 			continue;
 		if (i->op == Oargc) {
-			if (c->ishfa)
-				for (n=0; n<c->hfa.size; n++) {
-					reg[n] = *fp++;
-					cls[n] = c->hfa.base;
-				}
-			else
-				for (n=0; n<c->size/8; n++) {
-					reg[n] = *gp++;
-					cls[n] = Kl;
-				}
+			n = cregs(c, &gp, &fp, reg, cls);
 			ldregs(reg, cls, n, i->arg[1], fn);
 		}
 		else if (KBASE(i->cls == 0))
