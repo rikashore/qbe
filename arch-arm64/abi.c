@@ -9,7 +9,7 @@ struct TClass {
 	char ishfa;
 	struct {
 		char base;
-		char size;
+		unsigned char size;
 	} hfa;
 	int align;
 	uint64_t size;
@@ -66,6 +66,9 @@ typclass(Class *c, Typ *t)
 
 	c->size = sz;
 	c->align = t->align;
+
+	if (t->align > 4)
+		err("alignments larger than 16 are not supported");
 
 	if (t->dark || sz > 16 || sz == 0) {
 		/* large or unaligned structures are
@@ -301,23 +304,57 @@ a_argregs(Ref r, int p[2])
 	return b | ((bits)x8 << R8);
 }
 
-static Ref
-rarg(int ty, int *ng, int *nf)
+static void
+stregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
 {
-	if (KBASE(ty) == 0)
-		return TMP(R0 + (*ng)++);
-	else
-		return TMP(V0 + (*nf)++);
+	static int st[] = {
+		[Kw] = Ostorew, [Kl] = Ostorel,
+		[Ks] = Ostores, [Kd] = Ostored
+	};
+	int i;
+	uint64_t off;
+	Ref r[n], r1;
+
+	assert(n <= 4);
+	off = 0;
+	for (i=0; i<n; i++) {
+		r[n] = newtmp("abi", cls[i], fn);
+		r1 = newtmp("abi", Kl, fn);
+		emit(st[cls[i]], 0, R, r[n], r1);
+		emit(Oadd, Kl, r1, mem, getcon(off, fn));
+		off += 4 << KWIDE(cls[i]);
+	}
+	for (i=0; i<n; i++)
+		emit(Ocopy, Kl, r[n], TMP(reg[n]), R);
+}
+
+static void
+ldregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
+{
+	int i;
+	uint64_t off;
+	Ref r1;
+
+	off = 0;
+	for (i=0; i<n; i++) {
+		r1 = newtmp("abi", Kl, fn);
+		emit(Oload, cls[i], TMP(reg[i]), r1, R);
+		emit(Oadd, Kl, r1, mem, getcon(off, fn));
+		off += 4 << KWIDE(cls[i]);
+	}
 }
 
 static void
 selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 {
+	static int gpreg[] = {R0, R1, R2, R3, R4, R5, R6, R7};
+	static int fpreg[] = {V0, V1, V2, V3, V4, V5, V6, V7};
 	Ins *i;
 	Class *ca, *c, cret;
-	int cty, ng, nf, al, varc, envc;
+	int cty, *fp, *gp, al, reg[4], cls[4], envc;
+	uint n;
 	uint64_t stk, off;
-	Ref r, r1, r2, reg[2], env;
+	Ref r, r1, env;
 	Insl *il;
 
 	env = R;
@@ -326,8 +363,6 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 	cty = argsclass(i0, i1, ca, &env);
 	for (stk=0, c=&ca[i1-i0]; c>ca;)
 		if ((--c)->inmem) {
-			if (c->align > 4)
-				err("arm abi requires alignments of 16 or less");
 			stk += c->size;
 			if (c->align == 4)
 				stk += stk & 15;
@@ -340,24 +375,23 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 
 	if (!req(i1->arg[1], R)) {
 		typclass(&cret, &typ[i1->arg[1].val]);
-		if (!cret.inmem) {
-			/* get shit out of registers, shit might
-			 * be in 1 or 2 gp regs, or up to 4 fp
-			 * regs.
-			if (cret.size > 8) {
-				r = newtmp("abi", Kl, fn);
-				cret.ref[1] = newtmp("abi", cret.cls[1], fn);
-				emit(Ostorel, 0, R, cret.ref[1], r);
-				emit(Oadd, Kl, r, i1->to, getcon(8, fn));
-			}
-			cret.ref[0] = newtmp("abi", cret.cls[0], fn);
-			emit(Ostorel, 0, R, cret.ref[0], i1->to);
-			ca += retr(reg, &cret);
-			if (cret.size > 8)
-				emit(Ocopy, cret.cls[1], cret.ref[1], reg[1], R);
-			emit(Ocopy, cret.cls[0], cret.ref[0], reg[0], R);
-		} else
+		if (cret.inmem) {
 			cty |= 1 << 13;
+		} else {
+			if (cret.ishfa)
+				for (n=0; n<cret.hfa.size; n++) {
+					reg[n] = fpreg[n];
+					cls[n] = cret.hfa.base;
+					cty += 4;
+				}
+			else
+				for (n=0; n<cret.size/8; n++) {
+					reg[n] = gpreg[n];
+					cls[n] = Kl;
+					cty += 1;
+				}
+			stregs(reg, cls, n, i1->to, fn);
+		}
 		/* allocate return pad */
 		il = alloc(sizeof *il);
 		/* specific to NAlign == 3 */
@@ -375,55 +409,56 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 			cty |= 1 << 2;
 		}
 	}
-	envc = !req(R, env);
-	varc = i1->op == Ovacall;
-	if (varc && envc)
-		err("sysv abi does not support variadic env calls");
-	ca |= (varc | envc) << 12;
-	emit(Ocall, i1->cls, R, i1->arg[0], CALL(ca));
-	if (envc)
-		emit(Ocopy, Kl, TMP(RAX), env, R);
-	if (varc)
-		emit(Ocopy, Kw, TMP(RAX), getcon((ca >> 8) & 15, fn), R);
 
-	ng = nf = 0;
+	envc = !req(R, env);
+	if (envc)
+		die("todo: arm abi env calls");
+	emit(Ocall, 0, R, i1->arg[0], CALL(cty));
+
+	gp = gpreg;
+	fp = fpreg;
 	if (il && cret.inmem)
-		emit(Ocopy, Kl, rarg(Kl, &ng, &nf), il->i.to, R); /* pass hidden argument */
-	for (i=i0, a=ac; i<i1; i++, a++) {
-		if (a->inmem)
+		emit(Ocopy, Kl, TMP(R8), il->i.to, R); /* pass hidden argument */
+	for (i=i0, c=ca; i<i1; i++, c++) {
+		if (c->inmem)
 			continue;
-		r1 = rarg(a->cls[0], &ng, &nf);
 		if (i->op == Oargc) {
-			if (a->size > 8) {
-				r2 = rarg(a->cls[1], &ng, &nf);
-				r = newtmp("abi", Kl, fn);
-				emit(Oload, a->cls[1], r2, r, R);
-				emit(Oadd, Kl, r, i->arg[1], getcon(8, fn));
-			}
-			emit(Oload, a->cls[0], r1, i->arg[1], R);
-		} else
-			emit(Ocopy, i->cls, r1, i->arg[0], R);
+			if (c->ishfa)
+				for (n=0; n<c->hfa.size; n++) {
+					reg[n] = *fp++;
+					cls[n] = c->hfa.base;
+				}
+			else
+				for (n=0; n<c->size/8; n++) {
+					reg[n] = *gp++;
+					cls[n] = Kl;
+				}
+			ldregs(reg, cls, n, i->arg[1], fn);
+		}
+		else if (KBASE(i->cls == 0))
+			emit(Ocopy, Kl, TMP(*gp++), i->arg[0], R);
+		else
+			emit(Ocopy, Kd, TMP(*fp++), i->arg[0], R);
 	}
 
 	if (!stk)
 		return;
 
-	r = newtmp("abi", Kl, fn);
-	for (i=i0, a=ac, off=0; i<i1; i++, a++) {
-		if (!a->inmem)
+	for (i=i0, c=ca, off=0; i<i1; i++, c++) {
+		if (!c->inmem)
 			continue;
 		if (i->op == Oargc) {
-			if (a->align == 4)
+			if (c->align == 4)
 				off += off & 15;
-			blit(r, off, i->arg[1], a->size, fn);
+			blit(TMP(SP), off, i->arg[1], c->size, fn);
 		} else {
 			r1 = newtmp("abi", Kl, fn);
 			emit(Ostorel, 0, R, i->arg[0], r1);
-			emit(Oadd, Kl, r1, r, getcon(off, fn));
+			emit(Oadd, Kl, r1, TMP(SP), getcon(off, fn));
 		}
-		off += a->size;
+		off += c->size;
 	}
-	emit(Osalloc, Kl, r, getcon(stk, fn), R);
+	emit(Osub, Kl, TMP(SP), TMP(SP), getcon(stk, fn));
 }
 
 #if 0
@@ -472,8 +507,6 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 	for (i=i0, a=ac, s=4; i<i1; i++, a++) {
 		switch (a->inmem) {
 		case 1:
-			if (a->align > 4)
-				err("sysv abi requires alignments of 16 or less");
 			if (a->align == 4)
 				s = (s+3) & -4;
 			fn->tmp[i->to.val].slot = -s;
