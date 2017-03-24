@@ -25,8 +25,6 @@ MAKESURE(Reg_not_tmp, V30 < (int)Tmp0);
 #endif
 
 /* abi.c */
-extern int arm64_rsave[];
-extern int arm64_rclob[];
 bits arm64_retregs(Ref, int[2]);
 bits arm64_argregs(Ref, int[2]);
 
