@@ -1,9 +1,9 @@
 #include "all.h"
 
-typedef struct TClass Class;
+typedef struct Class_ Class;
 typedef struct Insl Insl;
 
-struct TClass {
+struct Class_ {
 	char inmem; /* 0, 1, or 2 for scalar argument on the stack */
 	char ishfa;
 	struct {
@@ -12,6 +12,9 @@ struct TClass {
 	} hfa;
 	int align;
 	uint64_t size;
+	unsigned char nreg, ngp, nfp;
+	int reg[4];
+	int cls[4];
 };
 
 struct Insl {
@@ -19,8 +22,8 @@ struct Insl {
 	Insl *link;
 };
 
-static int gpreg[] = {R0, R1, R2, R3, R4, R5, R6, R7};
-static int fpreg[] = {V0, V1, V2, V3, V4, V5, V6, V7};
+static int gpreg[12] = {R0, R1, R2, R3, R4, R5, R6, R7};
+static int fpreg[12] = {V0, V1, V2, V3, V4, V5, V6, V7};
 
 static int
 isfloatv(Typ *t, char *cls)
@@ -51,10 +54,11 @@ isfloatv(Typ *t, char *cls)
 }
 
 static void
-typclass(Class *c, Typ *t)
+typclass(Class *c, Typ *t, int *gp, int *fp)
 {
 	uint64_t sz;
 	int al;
+	uint n;
 
 	sz = t->size;
 	al = 1 << t->align;
@@ -68,14 +72,13 @@ typclass(Class *c, Typ *t)
 
 	c->size = sz;
 	c->align = t->align;
+	c->ngp = 0;
+	c->nfp = 0;
 
 	if (t->align > 4)
 		err("alignments larger than 16 are not supported");
 
 	if (t->dark || sz > 16 || sz == 0) {
-		/* large or unaligned structures are
-		 * required to be passed in memory
-		 */
 		c->inmem = 1;
 		return;
 	}
@@ -83,6 +86,17 @@ typclass(Class *c, Typ *t)
 	c->hfa.base = -1;
 	c->ishfa = isfloatv(t, &c->hfa.base);
 	c->hfa.size = c->hfa.base == Ks ? t->size/4 : t->size/8;
+	if (c->ishfa)
+		for (n=0; n<c->hfa.size; n++, c->nfp++) {
+			c->reg[n] = *fp++;
+			c->cls[n] = c->hfa.base;
+		}
+	else
+		for (n=0; n<sz/8; n++, c->ngp++) {
+			c->reg[n] = *gp++;
+			c->cls[n] = Kl;
+		}
+	c->nreg = n;
 }
 
 static void
@@ -102,24 +116,6 @@ blit8(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
 		emit(Oload, Kl, r, r1, R);
 		emit(Oadd, Kl, r1, rsrc, getcon(boff, fn));
 	}
-}
-
-static uint
-cregs(Class *c, int **gp, int **fp, int reg[], int cls[])
-{
-	uint n;
-
-	if (c->ishfa)
-		for (n=0; n<c->hfa.size; n++) {
-			reg[n] = *(*fp)++;
-			cls[n] = c->hfa.base;
-		}
-	else
-		for (n=0; n<c->size/8; n++) {
-			reg[n] = *(*gp)++;
-			cls[n] = Kl;
-		}
-	return n;
 }
 
 static void
@@ -165,8 +161,7 @@ ldregs(int reg[], int cls[], int n, Ref mem, Fn *fn)
 static void
 selret(Blk *b, Fn *fn)
 {
-	int j, k, cty, *gp, *fp, reg[4], cls[4];
-	uint n;
+	int j, k, cty;
 	Ref r;
 	Class cret;
 
@@ -179,18 +174,13 @@ selret(Blk *b, Fn *fn)
 	b->jmp.type = Jret0;
 
 	if (j == Jretc) {
-		typclass(&cret, &typ[fn->retty]);
+		typclass(&cret, &typ[fn->retty], gpreg, fpreg);
+		cty = (cret.nfp << 2) | cret.ngp;
 		if (cret.inmem) {
 			assert(rtype(fn->retr) == RTmp);
 			blit8(fn->retr, 0, r, cret.size, fn);
-			cty = 0;
-		} else {
-			gp = gpreg;
-			fp = fpreg;
-			n = cregs(&cret, &gp, &fp, reg, cls);
-			ldregs(reg, cls, n, r, fn);
-			cty = (fp - fpreg) << 2 | (gp - gpreg);
-		}
+		} else
+			ldregs(cret.reg, cret.cls, cret.nreg, r, fn);
 	} else {
 		k = j - Jretw;
 		if (KBASE(k) == 0) {
@@ -208,44 +198,50 @@ selret(Blk *b, Fn *fn)
 static int
 argsclass(Ins *i0, Ins *i1, Class *carg, Ref *env)
 {
-	int ngp, nfp, *pn;
+	int ngp, nfp, *gp, *fp;
 	Class *c;
 	Ins *i;
 
+	gp = gpreg;
+	fp = fpreg;
 	ngp = 8;
 	nfp = 8;
 	for (i=i0, c=carg; i<i1; i++, c++)
 		switch (i->op) {
 		case Opar:
 		case Oarg:
-			if (KBASE(i->cls) == 0)
-				pn = &ngp;
-			else
-				pn = &nfp;
-			if (*pn > 0) {
-				*pn -= 1;
-				c->inmem = 0;
-			} else
-				c->inmem = 2;
+			c->inmem = 2;
+			c->cls[0] = i->cls;
 			c->align = 3;
 			c->size = 8;
+			if (KBASE(i->cls) == 0 && ngp > 0) {
+				ngp--;
+				c->reg[0] = *gp++;
+				c->inmem = 0;
+			}
+			if (KBASE(i->cls) == 1 && nfp > 0) {
+				nfp--;
+				c->reg[0] = *fp++;
+				c->inmem = 0;
+			}
 			break;
 		case Oparc:
 		case Oargc:
-			typclass(c, &typ[i->arg[0].val]);
+			typclass(c, &typ[i->arg[0].val], gp, fp);
 			if (c->inmem)
 				break;
-			if (c->ishfa) {
-				nfp -= c->hfa.size;
-				pn = &nfp;
-			} else {
-				ngp -= c->size / 8;
-				pn = &ngp;
-			}
-			if (*pn < 0) {
-				*pn = 0;
-				c->inmem = 1;
-			}
+			if (c->ngp <= ngp) {
+				if (c->nfp <= nfp) {
+					ngp -= c->ngp;
+					nfp -= c->nfp;
+					gp += c->ngp;
+					fp += c->nfp;
+					break;
+				} else
+					nfp = 0;
+			} else
+				ngp = 0;
+			c->inmem = 1;
 			break;
 		case Opare:
 			*env = i->to;
@@ -255,7 +251,7 @@ argsclass(Ins *i0, Ins *i1, Class *carg, Ref *env)
 			break;
 		}
 
-	return ((8-ngp) << 5) | ((8-nfp) << 9);
+	return ((gp-gpreg) << 5) | ((fp-fpreg) << 9);
 }
 
 int arm64_rsave[] = {
@@ -337,16 +333,15 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 {
 	Ins *i;
 	Class *ca, *c, cret;
-	int cty, *fp, *gp, al, reg[4], cls[4], envc;
-	uint n;
+	int cty, al, envc;
 	uint64_t stk, off;
-	Ref r, r1, env;
+	Ref r, rstk, env;
 	Insl *il;
 
 	env = R;
 	ca = alloc((i1-i0) * sizeof ca[0]);
-
 	cty = argsclass(i0, i1, ca, &env);
+
 	for (stk=0, c=&ca[i1-i0]; c>ca;)
 		if ((--c)->inmem) {
 			stk += c->size;
@@ -354,27 +349,23 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 				stk += stk & 15;
 		}
 	stk += stk & 15;
-	if (stk) {
-		r = getcon(stk, fn);
-		emit(Oadd, Kl, TMP(SP), TMP(SP), r);
-	}
+	rstk = getcon(stk, fn);
+	if (stk)
+		emit(Oadd, Kl, TMP(SP), TMP(SP), rstk);
 
 	if (!req(i1->arg[1], R)) {
-		typclass(&cret, &typ[i1->arg[1].val]);
-		if (cret.inmem) {
+		typclass(&cret, &typ[i1->arg[1].val], gpreg, fpreg);
+		cty |= (cret.nfp << 2) | cret.ngp;
+		if (cret.inmem)
 			cty |= 1 << 13;
-		} else {
-			gp = gpreg;
-			fp = fpreg;
-			n = cregs(&cret, &gp, &fp, reg, cls);
-			stregs(reg, cls, n, i1->to, fn);
-			cty |= (fp - fpreg) << 2 | (gp - gpreg);
-		}
+		else
+			stregs(c->reg, c->cls, c->nreg, i1->to, fn);
 		/* allocate return pad */
 		il = alloc(sizeof *il);
 		/* specific to NAlign == 3 */
 		al = cret.align >= 2 ? cret.align - 2 : 0;
-		il->i = (Ins){Oalloc+al, i1->to, {getcon(cret.size, fn)}, Kl};
+		r = getcon(cret.size, fn);
+		il->i = (Ins){Oalloc+al, i1->to, {r}, Kl};
 		il->link = *ilp;
 		*ilp = il;
 	} else {
@@ -393,21 +384,19 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 		die("todo: arm abi env calls");
 	emit(Ocall, 0, R, i1->arg[0], CALL(cty));
 
-	gp = gpreg;
-	fp = fpreg;
 	if (il && cret.inmem)
-		emit(Ocopy, Kl, TMP(R8), il->i.to, R); /* struct return argument */
+		/* struct return argument */
+		emit(Ocopy, Kl, TMP(R8), il->i.to, R);
+
 	for (i=i0, c=ca; i<i1; i++, c++) {
 		if (c->inmem)
 			continue;
-		if (i->op == Oargc) {
-			n = cregs(c, &gp, &fp, reg, cls);
-			ldregs(reg, cls, n, i->arg[1], fn);
+		if (i->op == Oargc)
+			ldregs(c->reg, c->cls, c->nreg, i->arg[1], fn);
+		else {
+			r = TMP(c->reg[0]);
+			emit(Ocopy, c->cls[0], r, i->arg[0], R);
 		}
-		else if (KBASE(i->cls == 0))
-			emit(Ocopy, Kl, TMP(*gp++), i->arg[0], R);
-		else
-			emit(Ocopy, Kd, TMP(*fp++), i->arg[0], R);
 	}
 
 	if (!stk)
@@ -421,13 +410,13 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 				off += off & 15;
 			blit8(TMP(SP), off, i->arg[1], c->size, fn);
 		} else {
-			r1 = newtmp("abi", Kl, fn);
-			emit(Ostorel, 0, R, i->arg[0], r1);
-			emit(Oadd, Kl, r1, TMP(SP), getcon(off, fn));
+			r = newtmp("abi", Kl, fn);
+			emit(Ostorel, 0, R, i->arg[0], r);
+			emit(Oadd, Kl, r, TMP(SP), getcon(off, fn));
 		}
 		off += c->size;
 	}
-	emit(Osub, Kl, TMP(SP), TMP(SP), getcon(stk, fn));
+	emit(Osub, Kl, TMP(SP), TMP(SP), rstk);
 }
 
 #if 0
