@@ -386,7 +386,7 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 
 	envc = !req(R, env);
 	if (envc)
-		die("todo: arm abi env calls");
+		die("todo (arm abi): env calls");
 	emit(Ocall, 0, R, i1->arg[0], CALL(cty));
 
 	if (cty & (1 << 13))
@@ -422,81 +422,75 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 			blit8(i->arg[0], 0, i->arg[1], c->t->size, fn);
 }
 
-#if 0
-
 static int
 selpar(Fn *fn, Ins *i0, Ins *i1)
 {
-	Class *ca, *c, cret;
+	Class *ca, *c, cr;
+	Insl *il;
 	Ins *i;
-	int s, al, cty;
-	Ref r, env, tmp[16];
+	int n, s;
+	Ref r, env, tmp[16], *t;
 
 	env = R;
 	ca = alloc((i1-i0) * sizeof ca[0]);
 	curi = &insb[NIns];
 
-	cty = argsclass(i0, i1, ca, &env);
+	argsclass(i0, i1, ca, &env);
 
+	il = 0;
+	t = tmp;
 	for (i=i0, c=ca; i<i1; i++, c++) {
-		if (i->op != Oparc || c->inmem)
+		if (i->op != Oparc || (c->class & (Cptr|Cstk)))
 			continue;
-		if (a->size > 8) {
-			r = newtmp("abi", Kl, fn);
-			a->ref[1] = newtmp("abi", Kl, fn);
-			emit(Ostorel, 0, R, a->ref[1], r);
-			emit(Oadd, Kl, r, i->to, getcon(8, fn));
+		sttmps(t, c->cls, c->nreg, i->to, fn);
+		stkblob(i->to, c, fn, &il);
+		t += c->nreg;
+	}
+	for (; il; il=il->link)
+		emiti(il->i);
+
+	if (fn->retty >= 0) {
+		typclass(&cr, &typ[fn->retty], gpreg, fpreg);
+		if (cr.class & Cptr) {
+			fn->retr = newtmp("abi", Kl, fn);
+			emit(Ocopy, Kl, fn->retr, TMP(R8), R);
 		}
-		a->ref[0] = newtmp("abi", Kl, fn);
-		emit(Ostorel, 0, R, a->ref[0], i->to);
-		/* specific to NAlign == 3 */
-		al = a->align >= 2 ? a->align - 2 : 0;
-		emit(Oalloc+al, Kl, i->to, getcon(a->size, fn), R);
 	}
 
-	if (fn->retty >= 0 && aret.inmem) {
-		r = newtmp("abi", Kl, fn);
-		emit(Ocopy, Kl, r, rarg(Kl, &ng, &nf), R);
-		fn->retr = r;
-	}
-
-	for (i=i0, a=ac, s=4; i<i1; i++, a++) {
-		switch (a->inmem) {
-		case 1:
-			if (a->align == 4)
-				s = (s+3) & -4;
-			fn->tmp[i->to.val].slot = -s;
-			s += a->size / 4;
-			continue;
-		case 2:
-			emit(Oload, i->cls, i->to, SLOT(-s), R);
+	t = tmp;
+	for (i=i0, c=ca, s=4; i<i1; i++, c++) {
+		if (i->op == Oparc
+		&& (c->class & Cptr) == 0) {
+			if (c->class & Cstk) {
+				fn->tmp[i->to.val].slot = -s;
+				s += c->size / 4;
+			} else
+				for (n=0; n<c->nreg; n++) {
+					r = TMP(c->reg[n]);
+					emit(Ocopy, Kd, *t++, r, R);
+				}
+		} else if (c->class & Cstk) {
+			emit(Oload, *c->cls, i->to, SLOT(-s), R);
 			s += 2;
-			continue;
+		} else {
+			r = TMP(*c->reg);
+			emit(Ocopy, *c->cls, i->to, r, R);
 		}
-		r = rarg(a->cls[0], &ng, &nf);
-		if (i->op == Oparc) {
-			emit(Ocopy, Kl, a->ref[0], r, R);
-			if (a->size > 8) {
-				r = rarg(a->cls[1], &ng, &nf);
-				emit(Ocopy, Kl, a->ref[1], r, R);
-			}
-		} else
-			emit(Ocopy, i->cls, i->to, r, R);
 	}
 
 	if (!req(R, env))
-		emit(Ocopy, Kl, env, TMP(RAX), R);
+		die("todo (arm abi): env calls");
 
-	return fa | (s*4)<<12;
+	return 0;
 }
 
 void
-xv_abi(Fn *fn)
+arm64_abi(Fn *fn)
 {
 	Blk *b;
 	Ins *i, *i0, *ip;
-	RAlloc *ral;
-	int n, fa;
+	Insl *il;
+	int n;
 
 	for (b=fn->start; b; b=b->link)
 		b->visit = 0;
@@ -505,7 +499,7 @@ xv_abi(Fn *fn)
 	for (b=fn->start, i=b->ins; i-b->ins<b->nins; i++)
 		if (!ispar(i->op))
 			break;
-	fa = selpar(fn, b->ins, i);
+	selpar(fn, b->ins, i);
 	n = b->nins - (i - b->ins) + (&insb[NIns] - curi);
 	i0 = alloc(n * sizeof(Ins));
 	ip = icpy(ip = i0, curi, &insb[NIns] - curi);
@@ -514,7 +508,7 @@ xv_abi(Fn *fn)
 	b->ins = i0;
 
 	/* lower calls, returns, and vararg instructions */
-	ral = 0;
+	il = 0;
 	b = fn->start;
 	do {
 		if (!(b = b->link))
@@ -533,20 +527,20 @@ xv_abi(Fn *fn)
 				for (i0=i; i0>b->ins; i0--)
 					if (!isarg((i0-1)->op))
 						break;
-				selcall(fn, i0, i, &ral);
+				selcall(fn, i0, i, &il);
 				i = i0;
 				break;
 			case Ovastart:
 			case Ovaarg:
-				die("vastart and vaarg are todo for arm");
+				die("todo (arm abi): vastart and vaarg");
 				break;
 			case Oarg:
 			case Oargc:
 				die("unreachable");
 			}
 		if (b == fn->start)
-			for (; ral; ral=ral->link)
-				emiti(ral->i);
+			for (; il; il=il->link)
+				emiti(il->i);
 		b->nins = &insb[NIns] - curi;
 		idup(&b->ins, curi, b->nins);
 	} while (b != fn->start);
@@ -556,5 +550,3 @@ xv_abi(Fn *fn)
 		printfn(fn, stderr);
 	}
 }
-
-#endif
