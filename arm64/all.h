@@ -27,6 +27,7 @@ MAKESURE(Reg_not_tmp, V30 < (int)Tmp0);
 /* abi.c */
 bits arm64_retregs(Ref, int[2]);
 bits arm64_argregs(Ref, int[2]);
+void arm64_abi(Fn *);
 
 /* isel.c */
 int arm64_logimm(uint64_t, int);
