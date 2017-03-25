@@ -115,7 +115,7 @@ typclass(Class *c, Typ *t, int *gp, int *fp)
 }
 
 static void
-blit8(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
+blit8(Ref rstk, uint soff, Ref rsrc, int sz, Fn *fn)
 {
 	Ref r, r1;
 	uint boff;
@@ -134,24 +134,24 @@ blit8(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
 }
 
 static void
-sttmps(Ref tmp[], int cls[], int n, Ref mem, Fn *fn)
+sttmps(Ref tmp[], int cls[], uint nreg, Ref mem, Fn *fn)
 {
 	static int st[] = {
 		[Kw] = Ostorew, [Kl] = Ostorel,
 		[Ks] = Ostores, [Kd] = Ostored
 	};
-	int i;
+	uint n;
 	uint64_t off;
 	Ref r;
 
 	assert(n <= 4);
 	off = 0;
-	for (i=0; i<n; i++) {
-		tmp[n] = newtmp("abi", cls[i], fn);
+	for (n=0; n<nreg; n++) {
+		tmp[n] = newtmp("abi", cls[n], fn);
 		r = newtmp("abi", Kl, fn);
-		emit(st[cls[i]], 0, R, tmp[n], r);
+		emit(st[cls[n]], 0, R, tmp[n], r);
 		emit(Oadd, Kl, r, mem, getcon(off, fn));
-		off += KWIDE(cls[i]) ? 8 : 4;
+		off += KWIDE(cls[n]) ? 8 : 4;
 	}
 }
 
