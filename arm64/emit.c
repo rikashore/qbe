@@ -60,12 +60,14 @@ static struct {
 	{ Ostoreh, Kw, "strh %W0, %M1" },
 	{ Ostorew, Kw, "str %W0, %M1" },
 	{ Ostorel, Kw, "str %L0, %M1" },
+	{ Ocall,   Kw, "blr %L0" },
 
 	{ Oacmp,   Ki, "cmp %0, %1" },
 	{ Oacmn,   Ki, "cmn %0, %1" },
 
-#define X(c) \
-	{ Oflag+c, Ki, "cset %=, " #c },
+#define X(c, str) \
+	{ Oflag+c, Ki, "cset %=, " str },
+	CMP(X)
 #undef X
 	{ NOp, 0, 0 }
 };
@@ -141,8 +143,8 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 				break;
 			case RCon:
 				pc = &fn->con[r.val];
-				assert(pc->type == CBits);
 				n = pc->bits.i;
+				assert(pc->type == CBits);
 				if (n & 0xfff000)
 					fprintf(f, "#%u, lsl #12", n>>12);
 				else
@@ -227,6 +229,8 @@ emitins(Ins *i, Fn *fn, FILE *f)
 	case Onop:
 		break;
 	case Ocopy:
+		if (req(i->to, i->arg[0]))
+			break;
 		if (rtype(i->arg[0]) != RCon)
 			goto Table;
 		loadcon(&fn->con[i->arg[0].val], i->to.val, i->cls, f);
