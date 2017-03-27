@@ -467,7 +467,7 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 			} else
 				for (n=0; n<c->nreg; n++) {
 					r = TMP(c->reg[n]);
-					emit(Ocopy, Kd, *t++, r, R);
+					emit(Ocopy, c->cls[n], *t++, r, R);
 				}
 		} else if (c->class & Cstk) {
 			emit(Oload, *c->cls, i->to, SLOT(-s), R);
