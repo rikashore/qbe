@@ -104,14 +104,18 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 	Ref r;
 	int k, c;
 	Con *pc;
-	unsigned n;
+	unsigned n, sp;
 
 	fputc('\t', f);
 
+	sp = 0;
 	for (;;) {
 		k = i->cls;
 		while ((c = *s++) != '%')
-			if ( !c) {
+			if (c == ' ' && !sp) {
+				fputc('\t', f);
+				sp = 1;
+			} else if ( !c) {
 				fputc('\n', f);
 				return;
 			} else
@@ -179,9 +183,9 @@ loadcon(Con *c, int r, int k, FILE *f)
 			sprintf(off, "+%"PRIi64, n);
 		else
 			off[0] = 0;
-		fprintf(f, "\tadrp %s, %s%s\n",
+		fprintf(f, "\tadrp\t%s, %s%s\n",
 			rn, c->label, off);
-		fprintf(f, "\tadd %s, %s, #:lo12:%s%s\n",
+		fprintf(f, "\tadd\t%s, %s, #:lo12:%s%s\n",
 			rn, rn, c->label, off);
 		return;
 	}
@@ -189,14 +193,14 @@ loadcon(Con *c, int r, int k, FILE *f)
 	if (!w)
 		n = (int32_t)n;
 	if ((n | 0xffff) == -1 || arm64_logimm(n, k)) {
-		fprintf(f, "\tmov %s, #%"PRIi64"\n", rn, n);
+		fprintf(f, "\tmov\t%s, #%"PRIi64"\n", rn, n);
 	} else {
-		fprintf(f, "\tmov %s, #%d\n",
+		fprintf(f, "\tmov\t%s, #%d\n",
 			rn, (int)(n & 0xffff));
 		for (sh=16; n>>=16; sh+=16) {
 			if ((!w && sh == 32) || sh == 64)
 				break;
-			fprintf(f, "\tmovk %s, #0x%x, lsl #%d\n",
+			fprintf(f, "\tmovk\t%s, #0x%x, lsl #%d\n",
 				rn, (unsigned)(n & 0xffff), sh);
 		}
 	}
@@ -238,6 +242,43 @@ emitins(Ins *i, Fn *fn, FILE *f)
 	}
 }
 
+static uint64_t
+framesz(Fn *fn)
+{
+	int *r;
+	uint o;
+	uint64_t f;
+
+	for (o=0, r=arm64_rclob; *r>=0; r++)
+		o += 1 & (fn->reg >> *r);
+	f = fn->slot;
+	f = (f + 3) & -4;
+	o += o & 1;
+	return 4*f + 8*o;
+}
+
+/*
+
+  Stack-frame layout:
+
+  +=============+  ^
+  | callee-save |  |
+  |  registers  |  |
+  +-------------+  |
+  |    ...      |  |
+  |   locals    |  | framesz(fn)
+  |    ...      |  |
+  +-------------+  |
+  |    ...      |  |
+  | spill slots |  |
+  |    ...      |  |
+  +-------------+  v
+  |  saved x29  |
+  |  saved x30  |
+  +=============+ <- x29, sp
+
+*/
+
 void
 arm64_emitfn(Fn *fn, FILE *f)
 {
@@ -247,17 +288,36 @@ arm64_emitfn(Fn *fn, FILE *f)
 	#undef X
 	};
 	static int id0;
-	int c, lbl;
+	int c, lbl, *r;
+	uint64_t fs, o;
 	Blk *b, *s;
 	Ins *i;
 
 	fprintf(f, ".text\n");
 	if (fn->export)
 		fprintf(f, ".globl %s\n", fn->name);
-	fprintf(f,
-		"%s:\n",
-		fn->name
-	);
+	fprintf(f, "%s:\n", fn->name);
+
+	fs = framesz(fn);
+	if (fs + 16 > 512)
+		fprintf(f,
+			"\tsub\tsp, sp, #%" PRIu64 "\n"
+			"\tstp\tx29, x30, [sp, -16]!\n",
+			fs
+		);
+	else
+		fprintf(f,
+			"\tstp\tx29, x30, [sp, -%" PRIu64 "]!\n",
+			fs + 16
+		);
+	fputs("\tadd\tx29, sp, 0\n", f);
+	for (o=fs+16, r=arm64_rclob; *r>=0; r++)
+		if (fn->reg & BIT(*r))
+			fprintf(f,
+				"\tstr\t%s, [sp, %" PRIu64 "]\n",
+				rname(*r, Kl), o -= 8
+			);
+
 	for (lbl=0, b=fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
 			fprintf(f, ".L%d:\n", id0+b->id);
@@ -266,12 +326,29 @@ arm64_emitfn(Fn *fn, FILE *f)
 		lbl = 1;
 		switch (b->jmp.type) {
 		case Jret0:
+			for (o=fs+16, r=arm64_rclob; *r>=0; r++)
+				if (fn->reg & BIT(*r))
+					fprintf(f,
+						"\tldr\t%s, [sp, %" PRIu64 "]\n",
+						rname(*r, Kl), o -= 8
+					);
+			if (fs + 16 > 504)
+				fprintf(f,
+					"\tldp\tx29, x30, [sp], 16\n"
+					"\tadd\tsp, sp, #%" PRIu64 "\n",
+					fs
+				);
+			else
+				fprintf(f,
+					"\tldp\tx29, x30, [sp], %" PRIu64 "\n",
+					fs + 16
+				);
 			fprintf(f, "\tret\n");
 			break;
 		case Jjmp:
 		Jmp:
 			if (b->s1 != b->link)
-				fprintf(f, "\tb .L%d\n", id0+b->s1->id);
+				fprintf(f, "\tb\t.L%d\n", id0+b->s1->id);
 			else
 				lbl = 0;
 			break;
@@ -285,7 +362,7 @@ arm64_emitfn(Fn *fn, FILE *f)
 				b->s2 = s;
 			} else
 				c = cmpneg(c);
-			fprintf(f, "\tb%s .L%d\n", ctoa[c], id0+b->s2->id);
+			fprintf(f, "\tb%s\t.L%d\n", ctoa[c], id0+b->s2->id);
 			goto Jmp;
 		}
 	}
