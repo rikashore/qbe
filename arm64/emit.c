@@ -98,6 +98,17 @@ rname(int r, int k)
 	return buf;
 }
 
+static uint
+slot(int s, Fn *fn)
+{
+	struct { int i:29; } x;
+
+	x.i = s;
+	assert(x.i <= fn->slot);
+	assert(x.i >= 0);
+	return 16 + 4 * (fn->slot - x.i);
+}
+
 static void
 emitf(char *s, Ins *i, Fn *fn, FILE *f)
 {
@@ -238,6 +249,12 @@ emitins(Ins *i, Fn *fn, FILE *f)
 		if (rtype(i->arg[0]) != RCon)
 			goto Table;
 		loadcon(&fn->con[i->arg[0].val], i->to.val, i->cls, f);
+		break;
+	case Oaddr:
+		assert(rtype(i->arg[0]) == RSlot);
+		fprintf(f, "\tadd\t%s, sp, #%u\n",
+			rname(i->to.val, Kl), slot(i->arg[0].val, fn)
+		);
 		break;
 	}
 }

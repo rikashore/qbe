@@ -70,16 +70,25 @@ static void
 fixarg(Ref *pr, int k, Fn *fn)
 {
 	Ref r0, r1;
-	int rt;
+	int s;
 
 	r0 = *pr;
-	rt = rtype(r0);
-	if (rt == -1 || rt != RCon)
-		return;
-	assert(KBASE(k) == 0 && "TODO 1");
-	r1 = newtmp("isel", k, fn);
-	emit(Ocopy, k, r1, r0, R);
-	*pr = r1;
+	switch (rtype(r0)) {
+	case RCon:
+		assert(KBASE(k) == 0 && "TODO 1");
+		r1 = newtmp("isel", k, fn);
+		emit(Ocopy, k, r1, r0, R);
+		*pr = r1;
+		break;
+	case RTmp:
+		s = fn->tmp[r0.val].slot;
+		if (s == -1)
+			break;
+		r1 = newtmp("isel", Kl, fn);
+		emit(Oaddr, Kl, r1, SLOT(s), R);
+		*pr = r1;
+		break;
+	}
 }
 
 static int
@@ -139,7 +148,7 @@ sel(Ins i, Fn *fn)
 			i0->op += cmpop(cc);
 		else
 			i0->op += cc;
-	} else {
+	} else if (i.op != Onop) {
 		emiti(i);
 		iarg = curi->arg; /* fixarg() can change curi */
 		fixarg(&iarg[0], argcls(&i, 0), fn);
@@ -193,6 +202,26 @@ arm64_isel(Fn *fn)
 {
 	Blk *b;
 	Ins *i;
+	int n, al;
+	int64_t sz;
+
+	/* assign slots to fast allocs */
+	b = fn->start;
+	/* specific to NAlign == 3 */ /* or change n=4 and sz /= 4 below */
+	for (al=Oalloc, n=4; al<=Oalloc1; al++, n*=2)
+		for (i=b->ins; i-b->ins < b->nins; i++)
+			if (i->op == al) {
+				if (rtype(i->arg[0]) != RCon)
+					break;
+				sz = fn->con[i->arg[0].val].bits.i;
+				if (sz < 0 || sz >= INT_MAX-15)
+					err("invalid alloc size %"PRId64, sz);
+				sz = (sz + n-1) & -n;
+				sz /= 4;
+				fn->slot += sz;
+				fn->tmp[i->to.val].slot = fn->slot;
+				*i = (Ins){.op = Onop};
+			}
 
 	for (b=fn->start; b; b=b->link) {
 		curi = &insb[NIns];
