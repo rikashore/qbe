@@ -362,16 +362,16 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 		emit(Oadd, Kl, TMP(SP), TMP(SP), rstk);
 
 	if (!req(i1->arg[1], R)) {
-		stkblob(i1->to, &cr, fn, ilp);
 		typclass(&cr, &typ[i1->arg[1].val], gpreg, fpreg);
+		stkblob(i1->to, &cr, fn, ilp);
 		cty |= (cr.nfp << 2) | cr.ngp;
 		if (cr.class & Cptr)
 			cty |= 1 << 13;
 		else {
-			sttmps(tmp, c->cls, c->nreg, i1->to, fn);
-			for (n=0; n<c->nreg; n++) {
-				r = TMP(c->reg[n]);
-				emit(Ocopy, c->cls[n], tmp[n], r, R);
+			sttmps(tmp, cr.cls, cr.nreg, i1->to, fn);
+			for (n=0; n<cr.nreg; n++) {
+				r = TMP(cr.reg[n]);
+				emit(Ocopy, cr.cls[n], tmp[n], r, R);
 			}
 		}
 	} else {
