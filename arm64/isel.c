@@ -218,8 +218,8 @@ arm64_isel(Fn *fn)
 					err("invalid alloc size %"PRId64, sz);
 				sz = (sz + n-1) & -n;
 				sz /= 4;
-				fn->slot += sz;
 				fn->tmp[i->to.val].slot = fn->slot;
+				fn->slot += sz;
 				*i = (Ins){.op = Onop};
 			}
 

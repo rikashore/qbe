@@ -104,9 +104,8 @@ slot(int s, Fn *fn)
 	struct { int i:29; } x;
 
 	x.i = s;
-	assert(x.i <= fn->slot);
 	assert(x.i >= 0);
-	return 16 + 4 * (fn->slot - x.i);
+	return 16 + 4 * (fn->slot + x.i);
 }
 
 static void
@@ -270,6 +269,7 @@ framesz(Fn *fn)
 		o += 1 & (fn->reg >> *r);
 	f = fn->slot;
 	f = (f + 3) & -4;
+	fn->slot = f - fn->slot;
 	o += o & 1;
 	return 4*f + 8*o;
 }
@@ -278,21 +278,23 @@ framesz(Fn *fn)
 
   Stack-frame layout:
 
-  +=============+  ^
-  | callee-save |  |
+  +=============+
+  | callee-save |  ^
   |  registers  |  |
   +-------------+  |
   |    ...      |  |
-  |   locals    |  | framesz(fn)
-  |    ...      |  |
+  | spill slots |  |
+  |    ...      |  | framesz(fn)
   +-------------+  |
   |    ...      |  |
-  | spill slots |  |
+  |   locals    |  |
   |    ...      |  |
-  +-------------+  v
+  +-------------+  |
+  |xx padding xx|  v "4*fn->slot" after framesz()
+  +-------------+
   |  saved x29  |
   |  saved x30  |
-  +=============+ <- x29, sp
+  +=============+ <- x29
 
 */
 
