@@ -251,7 +251,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 		break;
 	case Oaddr:
 		assert(rtype(i->arg[0]) == RSlot);
-		fprintf(f, "\tadd\t%s, sp, #%u\n",
+		fprintf(f, "\tadd\t%s, x29, #%u\n",
 			rname(i->to.val, Kl), slot(i->arg[0].val, fn)
 		);
 		break;
