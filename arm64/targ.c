@@ -15,20 +15,26 @@ int arm64_rclob[] = {
 	V8,  V9,  V10, V11, V12, V13, V14, V15,
 	-1
 };
-MAKESURE(arrays_ok,
-	sizeof arm64_rsave == (NGPS+NFPS+1) * sizeof(int) &&
-	sizeof arm64_rclob == (NCLR+1) * sizeof(int)
-);
+
+#define RGLOB (BIT(FP) | BIT(SP) | BIT(R18))
 
 Target T_arm64 = {
 	.gpr0 = R0,
 	.ngpr = NGPR,
 	.fpr0 = V0,
 	.nfpr = NFPR,
-	.rglob = BIT(FP) | BIT(SP) | BIT(R18),
+	.rglob = RGLOB,
 	.nrglob = 3,
 	.rsave = arm64_rsave,
 	.nrsave = {NGPS, NFPS},
 	.retregs = arm64_retregs,
 	.argregs = arm64_argregs,
 };
+
+MAKESURE(globals_are_not_arguments,
+	(RGLOB & (BIT(R8+1) - 1)) == 0
+);
+MAKESURE(arrays_size_ok,
+	sizeof arm64_rsave == (NGPS+NFPS+1) * sizeof(int) &&
+	sizeof arm64_rclob == (NCLR+1) * sizeof(int)
+);
