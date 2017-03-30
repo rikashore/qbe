@@ -346,9 +346,10 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 		typclass(&cr, &typ[i1->arg[1].val], gpreg, fpreg);
 		stkblob(i1->to, &cr, fn, ilp);
 		cty |= (cr.nfp << 2) | cr.ngp;
-		if (cr.class & Cptr)
+		if (cr.class & Cptr) {
 			cty |= 1 << 13;
-		else {
+			emit(Ocopy, Kw, R, TMP(R0), R);
+		} else {
 			sttmps(tmp, cr.cls, cr.nreg, i1->to, fn);
 			for (n=0; n<cr.nreg; n++) {
 				r = TMP(cr.reg[n]);
