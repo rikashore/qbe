@@ -300,6 +300,7 @@ dopm(Blk *b, Ins *i, RMap *m)
 		def = T.retregs((i-1)->arg[1], 0);
 		for (r=0; T.rsave[r]>=0; r++)
 			if (!(BIT(T.rsave[r]) & def))
+			if (!(BIT(T.rsave[r]) & T.rglob))
 				move(T.rsave[r], R, m);
 	}
 	for (npm=0, n=0; n<m->n; n++) {
@@ -375,6 +376,7 @@ doblk(Blk *b, RMap *cur)
 			rs = T.argregs(i->arg[1], 0);
 			for (r=0; T.rsave[r]>=0; r++)
 				if (!(BIT(T.rsave[r]) & rs))
+				if (!(BIT(T.rsave[r]) & T.rglob))
 					rfree(cur, T.rsave[r]);
 			break;
 		case Ocopy:
