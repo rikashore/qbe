@@ -323,6 +323,30 @@ addcon(Con *c0, Con *c1)
 }
 
 void
+blit(Ref rdst, uint doff, Ref rsrc, uint sz, Fn *fn)
+{
+	struct { int st, ld, cls, size; } *p, tbl[] = {
+		{ Ostorel, Oload,   Kl, 8 },
+		{ Ostorew, Oload,   Kw, 8 },
+		{ Ostoreh, Oloaduh, Kw, 2 },
+		{ Ostoreb, Oloadub, Kw, 1 }
+	};
+	Ref r, r1;
+	uint boff, s;
+
+	for (boff=0, p=tbl; sz; p++)
+		for (s=p->size; sz>=s; sz-=s, doff+=s, boff+=s) {
+			r = newtmp("blt", Kl, fn);
+			r1 = newtmp("blt", Kl, fn);
+			emit(p->st, 0, R, r, r1);
+			emit(Oadd, Kl, r1, rdst, getcon(doff, fn));
+			r1 = newtmp("blt", Kl, fn);
+			emit(p->ld, p->cls, r, r1, R);
+			emit(Oadd, Kl, r1, rsrc, getcon(boff, fn));
+		}
+}
+
+void
 bsinit(BSet *bs, uint n)
 {
 	n = (n + NBit-1) / NBit;

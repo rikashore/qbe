@@ -115,25 +115,6 @@ typclass(Class *c, Typ *t, int *gp, int *fp)
 }
 
 static void
-blit8(Ref rstk, uint soff, Ref rsrc, int sz, Fn *fn)
-{
-	Ref r, r1;
-	uint boff;
-
-	/* it's an impolite blit, we might go across the end
-	 * of the source object a little bit... */
-	for (boff=0; sz>0; sz-=8, soff+=8, boff+=8) {
-		r = newtmp("abi", Kl, fn);
-		r1 = newtmp("abi", Kl, fn);
-		emit(Ostorel, 0, R, r, r1);
-		emit(Oadd, Kl, r1, rstk, getcon(soff, fn));
-		r1 = newtmp("abi", Kl, fn);
-		emit(Oload, Kl, r, r1, R);
-		emit(Oadd, Kl, r1, rsrc, getcon(boff, fn));
-	}
-}
-
-static void
 sttmps(Ref tmp[], int cls[], uint nreg, Ref mem, Fn *fn)
 {
 	static int st[] = {
@@ -191,7 +172,7 @@ selret(Blk *b, Fn *fn)
 		cty = (cr.nfp << 2) | cr.ngp;
 		if (cr.class & Cptr) {
 			assert(rtype(fn->retr) == RTmp);
-			blit8(fn->retr, 0, r, cr.t->size, fn);
+			blit(fn->retr, 0, r, cr.t->size, fn);
 		} else
 			ldregs(cr.reg, cr.cls, cr.nreg, r, fn);
 	} else {
@@ -411,7 +392,7 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 			emit(Ostorel, 0, R, i->arg[0], r);
 			emit(Oadd, Kl, r, TMP(SP), getcon(off, fn));
 		} else
-			blit8(TMP(SP), off, i->arg[1], c->size, fn);
+			blit(TMP(SP), off, i->arg[1], c->size, fn);
 		off += c->size;
 	}
 	if (stk)
@@ -419,7 +400,7 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 
 	for (i=i0, c=ca; i<i1; i++, c++)
 		if (c->class & Cptr)
-			blit8(i->arg[0], 0, i->arg[1], c->t->size, fn);
+			blit(i->arg[0], 0, i->arg[1], c->t->size, fn);
 }
 
 static int

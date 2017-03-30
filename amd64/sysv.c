@@ -95,25 +95,6 @@ typclass(AClass *a, Typ *t)
 	classify(a, t, &n, &e);
 }
 
-static void
-blit(Ref rstk, uint soff, Ref rsrc, uint sz, Fn *fn)
-{
-	Ref r, r1;
-	uint boff;
-
-	/* it's an impolite blit, we might go across the end
-	 * of the source object a little bit... */
-	for (boff=0; sz>0; sz-=8, soff+=8, boff+=8) {
-		r = newtmp("abi", Kl, fn);
-		r1 = newtmp("abi", Kl, fn);
-		emit(Ostorel, 0, R, r, r1);
-		emit(Oadd, Kl, r1, rstk, getcon(soff, fn));
-		r1 = newtmp("abi", Kl, fn);
-		emit(Oload, Kl, r, r1, R);
-		emit(Oadd, Kl, r1, rsrc, getcon(boff, fn));
-	}
-}
-
 static int
 retr(Ref reg[2], AClass *aret)
 {
