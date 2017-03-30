@@ -41,7 +41,10 @@ static struct {
 	{ Omul,    Ki, "mul %=, %0, %1" },
 	{ Odiv,    Ki, "sdiv %=, %0, %1" },
 	{ Oudiv,   Ki, "udiv %=, %0, %1" },
+	{ Orem,    Ki, "sdiv %?, %0, %1\n\tmsub\t%=, %?, %1, %0" },
+	{ Ourem,   Ki, "udiv %?, %0, %1\n\tmsub\t%=, %?, %1, %0" },
 	{ Ocopy,   Ka, "mov %=, %0" },
+	{ Oswap,   Ki, "mov %?, %0\n\tmov\t%0, %1\n\tmov\t%1, %?" },
 	{ Oloadsb, Ki, "ldrsb %=, %M0" },
 	{ Oloadub, Ki, "ldrb %=, %M0" },
 	{ Oloadsh, Ki, "ldrsh %=, %M0" },
@@ -140,6 +143,9 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 		case 'L':
 			k = Kl;
 			goto Switch;
+		case '?':
+			fputs(rname(R18, k), f);
+			break;
 		case '=':
 		case '0':
 			r = c == '=' ? i->to : i->arg[0];
