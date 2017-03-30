@@ -297,10 +297,9 @@ dopm(Blk *b, Ins *i, RMap *m)
 	} while (i != b->ins && regcpy(i-1));
 	assert(m0.n <= m->n);
 	if (i != b->ins && (i-1)->op == Ocall) {
-		def = T.retregs((i-1)->arg[1], 0);
+		def = T.retregs((i-1)->arg[1], 0) | T.rglob;
 		for (r=0; T.rsave[r]>=0; r++)
 			if (!(BIT(T.rsave[r]) & def))
-			if (!(BIT(T.rsave[r]) & T.rglob))
 				move(T.rsave[r], R, m);
 	}
 	for (npm=0, n=0; n<m->n; n++) {
@@ -373,10 +372,9 @@ doblk(Blk *b, RMap *cur)
 	for (i=&b->ins[b->nins]; i!=b->ins;) {
 		switch ((--i)->op) {
 		case Ocall:
-			rs = T.argregs(i->arg[1], 0);
+			rs = T.argregs(i->arg[1], 0) | T.rglob;
 			for (r=0; T.rsave[r]>=0; r++)
 				if (!(BIT(T.rsave[r]) & rs))
-				if (!(BIT(T.rsave[r]) & T.rglob))
 					rfree(cur, T.rsave[r]);
 			break;
 		case Ocopy:
