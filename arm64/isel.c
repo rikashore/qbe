@@ -69,15 +69,28 @@ Check:
 static void
 fixarg(Ref *pr, int k, Fn *fn)
 {
-	Ref r0, r1;
-	int s;
+	Ref r0, r1, r2;
+	int s, n;
+	Con *c;
 
 	r0 = *pr;
 	switch (rtype(r0)) {
 	case RCon:
-		assert(KBASE(k) == 0 && "TODO 1");
 		r1 = newtmp("isel", k, fn);
-		emit(Ocopy, k, r1, r0, R);
+		if (KBASE(k) == 0) {
+			emit(Ocopy, k, r1, r0, R);
+		} else {
+			c = &fn->con[r0.val];
+			n = gasstashfp(c->bits.i, KWIDE(k));
+			vgrow(&fn->con, ++fn->ncon);
+			c = &fn->con[fn->ncon-1];
+			c->type = CAddr;
+			c->bits.i = 0;
+			sprintf(c->label, "fp%d", n);
+			r2 = newtmp("isel", Kl, fn);
+			emit(Oload, k, r1, r2, R);
+			emit(Ocopy, Kl, r2, CON(c-fn->con), R);
+		}
 		*pr = r1;
 		break;
 	case RTmp:

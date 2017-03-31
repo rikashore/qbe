@@ -31,7 +31,9 @@ static struct {
 	char *asm;
 } omap[] = {
 	{ Oadd,    Ki, "add %=, %0, %1" },
+	{ Oadd,    Ka, "fadd %=, %0, %1" },
 	{ Osub,    Ki, "sub %=, %0, %1" },
+	{ Osub,    Ka, "fsub %=, %0, %1" },
 	{ Oand,    Ki, "and %=, %0, %1" },
 	{ Oor,     Ki, "orr %=, %0, %1" },
 	{ Oxor,    Ki, "eor %=, %0, %1" },
@@ -39,12 +41,22 @@ static struct {
 	{ Oshr,    Ki, "lsr %=, %0, %1" },
 	{ Oshl,    Ki, "lsl %=, %0, %1" },
 	{ Omul,    Ki, "mul %=, %0, %1" },
+	{ Omul,    Ka, "fmul %=, %0, %1" },
 	{ Odiv,    Ki, "sdiv %=, %0, %1" },
+	{ Odiv,    Ka, "fdiv %=, %0, %1" },
 	{ Oudiv,   Ki, "udiv %=, %0, %1" },
 	{ Orem,    Ki, "sdiv %?, %0, %1\n\tmsub\t%=, %?, %1, %0" },
 	{ Ourem,   Ki, "udiv %?, %0, %1\n\tmsub\t%=, %?, %1, %0" },
-	{ Ocopy,   Ka, "mov %=, %0" },
+	{ Ocopy,   Ki, "mov %=, %0" },
+	{ Ocopy,   Ka, "fmov %=, %0" },
 	{ Oswap,   Ki, "mov %?, %0\n\tmov\t%0, %1\n\tmov\t%1, %?" },
+	{ Oswap,   Ka, "fmov %?, %0\n\tfmov\t%0, %1\n\tfmov\t%1, %?" },
+	{ Ostoreb, Kw, "strb %W0, %M1" },
+	{ Ostoreh, Kw, "strh %W0, %M1" },
+	{ Ostorew, Kw, "str %W0, %M1" },
+	{ Ostorel, Kw, "str %L0, %M1" },
+	{ Ostores, Kw, "str %S0, %M1" },
+	{ Ostored, Kw, "str %D0, %M1" },
 	{ Oloadsb, Ki, "ldrsb %=, %M0" },
 	{ Oloadub, Ki, "ldrb %=, %M0" },
 	{ Oloadsh, Ki, "ldrsh %=, %M0" },
@@ -52,17 +64,22 @@ static struct {
 	{ Oloadsw, Kw, "ldr %=, %M0" },
 	{ Oloadsw, Kl, "ldrsw %=, %M0" },
 	{ Oloaduw, Ki, "ldr %W=, %M0" },
-	{ Oload,   Ki, "ldr %=, %M0" },
+	{ Oload,   Ka, "ldr %=, %M0" },
 	{ Oextsb,  Ki, "sxtb %=, %W0" },
 	{ Oextub,  Ki, "uxtb %W=, %W0" },
 	{ Oextsh,  Ki, "sxth %=, %W0" },
 	{ Oextuh,  Ki, "uxth %W=, %W0" },
 	{ Oextsw,  Ki, "sxtw %L=, %W0" },
 	{ Oextuw,  Ki, "mov %W=, %W0" },
-	{ Ostoreb, Kw, "strb %W0, %M1" },
-	{ Ostoreh, Kw, "strh %W0, %M1" },
-	{ Ostorew, Kw, "str %W0, %M1" },
-	{ Ostorel, Kw, "str %L0, %M1" },
+	{ Oexts,   Kd, "fcvt %=, %S0" },
+	{ Ocast,   Kw, "fmov %=, %S0" },
+	{ Ocast,   Kl, "fmov %=, %D0" },
+	{ Ocast,   Ks, "fmov %=, %W0" },
+	{ Ocast,   Kd, "fmov %=, %L0" },
+	{ Ostosi,  Ka, "fcvtzs %=, %S0" },
+	{ Odtosi,  Ka, "fcvtzs %=, %D0" },
+	{ Oswtof,  Ka, "scvtf %=, %W0" },
+	{ Osltof,  Ka, "scvtf %=, %L0" },
 	{ Ocall,   Kw, "blr %L0" },
 
 	{ Oacmp,   Ki, "cmp %0, %1" },
@@ -143,8 +160,17 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 		case 'L':
 			k = Kl;
 			goto Switch;
+		case 'S':
+			k = Ks;
+			goto Switch;
+		case 'D':
+			k = Kd;
+			goto Switch;
 		case '?':
-			fputs(rname(R18, k), f);
+			if (KBASE(k) == 0)
+				fputs(rname(R18, k), f);
+			else
+				fputs(k==Ks ? "s31" : "d31", f);
 			break;
 		case '=':
 		case '0':
