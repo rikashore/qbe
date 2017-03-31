@@ -128,6 +128,7 @@ OP(xcmp,    T(w,l,s,d, w,l,s,d), 0) X64(1, 1, 0)
 OP(xtest,   T(w,l,e,e, w,l,e,e), 0) X64(1, 1, 0)
 OP(acmp,    T(w,l,e,e, w,l,e,e), 0) X64(0, 0, 0)
 OP(acmn,    T(w,l,e,e, w,l,e,e), 0) X64(0, 0, 0)
+OP(afcmp,   T(e,e,s,d, e,e,s,d), 0) X64(0, 0, 0)
 
 /* Arguments, Parameters, and Calls */
 OP(par,     T(x,x,x,x, x,x,x,x), 0) X64(0, 0, 0)

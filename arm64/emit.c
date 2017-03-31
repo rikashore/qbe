@@ -84,6 +84,8 @@ static struct {
 
 	{ Oacmp,   Ki, "cmp %0, %1" },
 	{ Oacmn,   Ki, "cmn %0, %1" },
+	{ Oafcmp,  Ks, "fcmpe %S0, %S1" },
+	{ Oafcmp,  Kd, "fcmpe %D0, %D1" },
 
 #define X(c, str) \
 	{ Oflag+c, Ki, "cset %=, " str },
@@ -105,12 +107,14 @@ rname(int r, int k)
 		switch (k) {
 		default: die("invalid class");
 		case Kw: sprintf(buf, "w%d", r-R0); break;
+		case Kx:
 		case Kl: sprintf(buf, "x%d", r-R0); break;
 		}
 	else if (V0 <= r && r <= V30)
 		switch (k) {
 		default: die("invalid class");
 		case Ks: sprintf(buf, "s%d", r-V0); break;
+		case Kx:
 		case Kd: sprintf(buf, "d%d", r-V0); break;
 		}
 	else
@@ -212,7 +216,7 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 static void
 loadcon(Con *c, int r, int k, FILE *f)
 {
-	char *rn, off[32];
+	char *rn, *p, off[32];
 	int64_t n;
 	int w, sh;
 
@@ -225,10 +229,11 @@ loadcon(Con *c, int r, int k, FILE *f)
 			sprintf(off, "+%"PRIi64, n);
 		else
 			off[0] = 0;
-		fprintf(f, "\tadrp\t%s, %s%s\n",
-			rn, c->label, off);
-		fprintf(f, "\tadd\t%s, %s, #:lo12:%s%s\n",
-			rn, rn, c->label, off);
+		p = c->local ? ".L" : "";
+		fprintf(f, "\tadrp\t%s, %s%s%s\n",
+			rn, p, c->label, off);
+		fprintf(f, "\tadd\t%s, %s, #:lo12:%s%s%s\n",
+			rn, rn, p, c->label, off);
 		return;
 	}
 	assert(c->type == CBits);
@@ -366,7 +371,7 @@ arm64_emitfn(Fn *fn, FILE *f)
 		if (fn->reg & BIT(*r))
 			fprintf(f,
 				"\tstr\t%s, [sp, %" PRIu64 "]\n",
-				rname(*r, Kl), o -= 8
+				rname(*r, Kx), o -= 8
 			);
 
 	for (lbl=0, b=fn->start; b; b=b->link) {
@@ -381,7 +386,7 @@ arm64_emitfn(Fn *fn, FILE *f)
 				if (fn->reg & BIT(*r))
 					fprintf(f,
 						"\tldr\t%s, [sp, %" PRIu64 "]\n",
-						rname(*r, Kl), o -= 8
+						rname(*r, Kx), o -= 8
 					);
 			if (fs + 16 > 504)
 				fprintf(f,

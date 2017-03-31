@@ -67,7 +67,7 @@ Check:
 }
 
 static void
-fixarg(Ref *pr, int k, Fn *fn)
+fixarg(Ref *pr, int k, int phi, Fn *fn)
 {
 	Ref r0, r1, r2;
 	int s, n;
@@ -76,6 +76,8 @@ fixarg(Ref *pr, int k, Fn *fn)
 	r0 = *pr;
 	switch (rtype(r0)) {
 	case RCon:
+		if (KBASE(k) == 0 && phi)
+			return;
 		r1 = newtmp("isel", k, fn);
 		if (KBASE(k) == 0) {
 			emit(Ocopy, k, r1, r0, R);
@@ -84,8 +86,7 @@ fixarg(Ref *pr, int k, Fn *fn)
 			n = gasstashfp(c->bits.i, KWIDE(k));
 			vgrow(&fn->con, ++fn->ncon);
 			c = &fn->con[fn->ncon-1];
-			c->type = CAddr;
-			c->bits.i = 0;
+			*c = (Con){.type = CAddr, .local = 1};
 			sprintf(c->label, "fp%d", n);
 			r2 = newtmp("isel", Kl, fn);
 			emit(Oload, k, r1, r2, R);
@@ -112,7 +113,13 @@ selcmp(Ref arg[2], int k, Fn *fn)
 	int swap, cmp, fix;
 	int64_t n;
 
-	assert(KBASE(k) == 0 && "TODO 3");
+	if (KBASE(k) == 1) {
+		emit(Oafcmp, k, R, arg[0], arg[1]);
+		iarg = curi->arg;
+		fixarg(&iarg[0], k, 0, fn);
+		fixarg(&iarg[1], k, 0, fn);
+		return 0;
+	}
 	swap = rtype(arg[0]) == RCon;
 	if (swap) {
 		r = arg[1];
@@ -141,9 +148,9 @@ selcmp(Ref arg[2], int k, Fn *fn)
 	}
 	emit(cmp, k, R, arg[0], r);
 	iarg = curi->arg;
-	fixarg(&iarg[0], k, fn);
+	fixarg(&iarg[0], k, 0, fn);
 	if (fix)
-		fixarg(&iarg[1], k, fn);
+		fixarg(&iarg[1], k, 0, fn);
 	return swap;
 }
 
@@ -164,8 +171,8 @@ sel(Ins i, Fn *fn)
 	} else if (i.op != Onop) {
 		emiti(i);
 		iarg = curi->arg; /* fixarg() can change curi */
-		fixarg(&iarg[0], argcls(&i, 0), fn);
-		fixarg(&iarg[1], argcls(&i, 1), fn);
+		fixarg(&iarg[0], argcls(&i, 0), 0, fn);
+		fixarg(&iarg[1], argcls(&i, 1), 0, fn);
 	}
 }
 
@@ -213,9 +220,10 @@ seljmp(Blk *b, Fn *fn)
 void
 arm64_isel(Fn *fn)
 {
-	Blk *b;
+	Blk *b, **sb;
 	Ins *i;
-	int n, al;
+	Phi *p;
+	uint n, al;
 	int64_t sz;
 
 	/* assign slots to fast allocs */
@@ -238,6 +246,12 @@ arm64_isel(Fn *fn)
 
 	for (b=fn->start; b; b=b->link) {
 		curi = &insb[NIns];
+		for (sb=(Blk*[3]){b->s1, b->s2, 0}; *sb; sb++)
+			for (p=(*sb)->phi; p; p=p->link) {
+				for (n=0; p->blk[n] != b; n++)
+					assert(n+1 < p->narg);
+				fixarg(&p->arg[n], p->cls, 1, fn);
+			}
 		seljmp(b, fn);
 		for (i=&b->ins[b->nins]; i!=b->ins;)
 			sel(*--i, fn);
