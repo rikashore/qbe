@@ -4,7 +4,7 @@
 
 enum {
 	Ke = -2, /* Erroneous mode */
-	Km = Kl, /* Memory pointer (for x64) */
+	Km = Kl, /* Memory pointer */
 };
 
 OpDesc opdesc[NOp] = {

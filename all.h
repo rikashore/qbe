@@ -321,7 +321,7 @@ struct Con {
 
 typedef struct Addr Addr;
 
-struct Addr { /* x64 addressing */
+struct Addr { /* amd64 addressing */
 	Con offset;
 	Ref base;
 	Ref index;
