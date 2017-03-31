@@ -11,7 +11,7 @@ enum Imm {
 };
 
 static enum Imm
-imm(Con *c, int w, int64_t *pn)
+imm(Con *c, int k, int64_t *pn)
 {
 	int64_t n;
 	int i;
@@ -19,7 +19,7 @@ imm(Con *c, int w, int64_t *pn)
 	if (c->type != CBits)
 		return Iother;
 	n = c->bits.i;
-	if (!w)
+	if (k == Kw)
 		n = (int32_t)n;
 	i = Iplo12;
 	if (n < 0) {
@@ -41,7 +41,7 @@ arm64_logimm(uint64_t x, int k)
 {
 	uint64_t n;
 
-	if (KWIDE(k))
+	if (k == Kw)
 		x = (x & 0xffffffff) | x << 32;
 	if (x & 1)
 		x = ~x;
@@ -131,7 +131,7 @@ selcmp(Ref arg[2], int k, Fn *fn)
 	r = arg[1];
 	if (rtype(r) == RCon) {
 		c = &fn->con[r.val];
-		switch (imm(c, k == Kl, &n)) {
+		switch (imm(c, k, &n)) {
 		default:
 			break;
 		case Iplo12:
