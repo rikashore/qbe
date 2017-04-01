@@ -84,8 +84,7 @@ static struct {
 
 	{ Oacmp,   Ki, "cmp %0, %1" },
 	{ Oacmn,   Ki, "cmn %0, %1" },
-	{ Oafcmp,  Ks, "fcmpe %S0, %S1" },
-	{ Oafcmp,  Kd, "fcmpe %D0, %D1" },
+	{ Oafcmp,  Ka, "fcmpe %0, %1" },
 
 #define X(c, str) \
 	{ Oflag+c, Ki, "cset %=, " str },
