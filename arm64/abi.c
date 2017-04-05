@@ -510,7 +510,7 @@ chpred(Blk *b, Blk *bp, Blk *bp1)
 static void
 selvaarg(Fn *fn, Blk *b, Ins *i)
 {
-	Ref loc, lreg, lstk, nr, r0, r1, c8, c16, c24, c28, c, ap;
+	Ref loc, lreg, lstk, nr, r0, r1, c8, c16, c24, c28, ap;
 	Blk *b0, *bstk, *breg;
 	int isgp;
 
@@ -524,7 +524,7 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	/* @b [...]
 	       r0 =l add ap, (24 or 28)
 	       nr =l loadsw r0
-	       r1 =w cultw nr, (64 or 128)
+	       r1 =w csltw nr, 0
 	       jnz r1, @breg, @bstk
 	   @breg
 	       r0 =l add ap, (8 or 16)
@@ -591,8 +591,7 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	b->jmp.arg = r1;
 	b->s1 = breg;
 	b->s2 = bstk;
-	c = getcon(isgp ? 64 : 128, fn);
-	emit(Ocmpw+Ciult, Kw, r1, nr, c);
+	emit(Ocmpw+Cislt, Kw, r1, nr, CON_Z);
 	emit(Oloadsw, Kl, nr, r0, R);
 	emit(Oadd, Kl, r0, ap, isgp ? c24 : c28);
 }
@@ -609,22 +608,24 @@ selvastart(Fn *fn, Params p, Ref ap)
 	emit(Oadd, Kl, r0, rsave, getcon(p.sp*8+192, fn));
 
 	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, rsave, r0);
+	r1 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, r1, r0);
+	emit(Oadd, Kl, r1, rsave, getcon(64, fn));
 	emit(Oadd, Kl, r0, ap, getcon(8, fn));
 
 	r0 = newtmp("abi", Kl, fn);
 	r1 = newtmp("abi", Kl, fn);
 	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, rsave, getcon(64, fn));
+	emit(Oadd, Kl, r1, rsave, getcon(192, fn));
 	emit(Oaddr, Kl, rsave, SLOT(-1), R);
 	emit(Oadd, Kl, r0, ap, getcon(16, fn));
 
 	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, getcon(p.gp*8, fn), r0);
+	emit(Ostorew, Kw, R, getcon((p.gp-8)*8, fn), r0);
 	emit(Oadd, Kl, r0, ap, getcon(24, fn));
 
 	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, getcon(p.fp*16, fn), r0);
+	emit(Ostorew, Kw, R, getcon((p.fp-8)*16, fn), r0);
 	emit(Oadd, Kl, r0, ap, getcon(28, fn));
 }
 
