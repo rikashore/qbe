@@ -419,9 +419,7 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 	Ins *i;
 	int n, s, cty;
 	Ref r, env, tmp[16], *t;
-	Params p;
 
-	p = (Params){0};
 	env = R;
 	ca = alloc((i1-i0) * sizeof ca[0]);
 	curi = &insb[NIns];
@@ -470,14 +468,15 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 			emit(Ocopy, *c->cls, i->to, r, R);
 		}
 	}
-	p.nstk = s - 2;
-	p.ngp = (cty >> 5) & 15;
-	p.nfp = (cty >> 9) & 15;
 
 	if (!req(R, env))
 		die("todo (arm abi): env calls");
 
-	return p;
+	return (Params){
+		.nstk = s - 2,
+		.ngp = (cty >> 5) & 15,
+		.nfp = (cty >> 9) & 15
+	};
 }
 
 static Blk *
