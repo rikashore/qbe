@@ -31,7 +31,9 @@ struct Insl {
 };
 
 struct Params {
-	uint fp, gp, sp;
+	uint ngp;
+	uint nfp;
+	uint nstk;
 };
 
 static int gpreg[12] = {R0, R1, R2, R3, R4, R5, R6, R7};
@@ -447,28 +449,30 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 	}
 
 	t = tmp;
-	for (i=i0, c=ca, s=4; i<i1; i++, c++) {
+	for (i=i0, c=ca, s=2; i<i1; i++, c++) {
 		if (i->op == Oparc
 		&& (c->class & Cptr) == 0) {
 			if (c->class & Cstk) {
 				fn->tmp[i->to.val].slot = -s;
-				s += c->size / 4;
+				s += c->size / 8;
 			} else
 				for (n=0; n<c->nreg; n++) {
 					r = TMP(c->reg[n]);
 					emit(Ocopy, c->cls[n], *t++, r, R);
 				}
 		} else if (c->class & Cstk) {
-			emit(Oload, *c->cls, i->to, SLOT(-s), R);
-			s += 2;
+			r = newtmp("abi", Kl, fn);
+			emit(Oload, *c->cls, i->to, r, R);
+			emit(Oaddr, Kl, r, SLOT(-s), R);
+			s++;
 		} else {
 			r = TMP(*c->reg);
 			emit(Ocopy, *c->cls, i->to, r, R);
 		}
 	}
-	p.sp = (s-4) / 2;
-	p.gp = (cty >> 5) & 15;
-	p.fp = (cty >> 9) & 15;
+	p.nstk = s - 2;
+	p.ngp = (cty >> 5) & 15;
+	p.nfp = (cty >> 9) & 15;
 
 	if (!req(R, env))
 		die("todo (arm abi): env calls");
@@ -605,7 +609,7 @@ selvastart(Fn *fn, Params p, Ref ap)
 
 	r0 = newtmp("abi", Kl, fn);
 	emit(Ostorel, Kw, R, r0, ap);
-	emit(Oadd, Kl, r0, rsave, getcon(p.sp*8+192, fn));
+	emit(Oadd, Kl, r0, rsave, getcon(p.nstk*8 + 192, fn));
 
 	r0 = newtmp("abi", Kl, fn);
 	r1 = newtmp("abi", Kl, fn);
@@ -621,11 +625,11 @@ selvastart(Fn *fn, Params p, Ref ap)
 	emit(Oadd, Kl, r0, ap, getcon(16, fn));
 
 	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorew, Kw, R, getcon((p.gp-8)*8, fn), r0);
+	emit(Ostorew, Kw, R, getcon((p.ngp-8)*8, fn), r0);
 	emit(Oadd, Kl, r0, ap, getcon(24, fn));
 
 	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorew, Kw, R, getcon((p.fp-8)*16, fn), r0);
+	emit(Ostorew, Kw, R, getcon((p.nfp-8)*16, fn), r0);
 	emit(Oadd, Kl, r0, ap, getcon(28, fn));
 }
 

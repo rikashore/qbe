@@ -130,15 +130,18 @@ rname(int r, int k)
 }
 
 static uint64_t
-slot(int s, E *e)
+slot(int s, Fn *fn, E *e)
 {
-	struct { int i:29; } x;
-
-	x.i = s;
-	if (x.i == -1)
+	s = ((int32_t)s << 3) >> 3;
+	if (s == -1)
 		return 16 + e->frame;
-	assert(x.i >= 0);
-	return 16 + e->padding + 4 * x.i;
+	if (s < 0) {
+		if (fn->vararg)
+			return 16 + e->frame + 192 - (s+2)*8;
+		else
+			return 16 + e->frame - (s+2)*8;
+	} else
+		return 16 + e->padding + 4 * s;
 }
 
 static void
@@ -298,7 +301,7 @@ emitins(Ins *i, Fn *fn, E *e)
 	case Oaddr:
 		assert(rtype(i->arg[0]) == RSlot);
 		fprintf(e->f, "\tadd\t%s, x29, #%"PRIu64"\n",
-			rname(i->to.val, Kl), slot(i->arg[0].val, e)
+			rname(i->to.val, Kl), slot(i->arg[0].val, fn, e)
 		);
 		break;
 	}
