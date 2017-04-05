@@ -1,6 +1,6 @@
 #include "../all.h"
 
-enum Reg {
+enum amd64_Reg {
 	RAX = RXX+1, /* caller-save */
 	RCX,
 	RDX,
@@ -44,7 +44,7 @@ enum Reg {
 	NCLR = R15 - RBX + 1,
 };
 
-MAKESURE(Reg_not_tmp, XMM15 < (int)Tmp0);
+MAKESURE(reg_not_tmp, XMM15 < (int)Tmp0);
 
 /* sysv.c (abi) */
 extern int amd64_sysv_rsave[];

@@ -2,7 +2,7 @@
 
 #include "../all.h"
 
-enum Reg {
+enum arm64_Reg {
 	R0 = RXX + 1,
 	     R1,  R2,  R3,  R4,  R5,  R6,  R7,
 	R8,  R9,  R10, R11, R12, R13, R14, R15,
@@ -20,7 +20,7 @@ enum Reg {
 	NFPS = (V7 - V0 + 1) + (V30 - V16 + 1),
 	NCLR = (R28 - R19 + 1) + (V15 - V8 + 1),
 };
-MAKESURE(Reg_not_tmp, V30 < (int)Tmp0);
+MAKESURE(reg_not_tmp, V30 < (int)Tmp0);
 
 #endif
 
