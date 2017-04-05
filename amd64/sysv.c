@@ -519,7 +519,7 @@ chpred(Blk *b, Blk *bp, Blk *bp1)
 	}
 }
 
-void
+static void
 selvaarg(Fn *fn, Blk *b, Ins *i)
 {
 	Ref loc, lreg, lstk, nr, r0, r1, c4, c8, c16, c, ap;
@@ -611,7 +611,7 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	emit(Oadd, Kl, r0, ap, isint ? CON_Z : c4);
 }
 
-void
+static void
 selvastart(Fn *fn, int fa, Ref ap)
 {
 	Ref r0, r1;
