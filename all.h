@@ -342,6 +342,7 @@ struct Fn {
 	Blk **rpo;
 	bits reg;
 	int slot;
+	uint64_t frame;
 	char export;
 	char vararg;
 	char name[NString];

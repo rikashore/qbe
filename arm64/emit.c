@@ -121,12 +121,14 @@ rname(int r, int k)
 	return buf;
 }
 
-static uint
+static uint64_t
 slot(int s, Fn *fn)
 {
 	struct { int i:29; } x;
 
 	x.i = s;
+	if (x.i == -1)
+		return 16 + fn->frame;
 	assert(x.i >= 0);
 	return 16 + 4 * (fn->slot + x.i);
 }
@@ -287,7 +289,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 		break;
 	case Oaddr:
 		assert(rtype(i->arg[0]) == RSlot);
-		fprintf(f, "\tadd\t%s, x29, #%u\n",
+		fprintf(f, "\tadd\t%s, x29, #%"PRIu64"\n",
 			rname(i->to.val, Kl), slot(i->arg[0].val, fn)
 		);
 		break;
@@ -315,6 +317,9 @@ framesz(Fn *fn)
   Stack-frame layout:
 
   +=============+
+  | varargs     |
+  |  save area  |
+  +-------------+
   | callee-save |  ^
   |  registers  |  |
   +-------------+  |
@@ -343,7 +348,7 @@ arm64_emitfn(Fn *fn, FILE *f)
 	#undef X
 	};
 	static int id0;
-	int c, lbl, *r;
+	int n, c, lbl, *r;
 	uint64_t fs, o;
 	Blk *b, *s;
 	Ins *i;
@@ -353,7 +358,15 @@ arm64_emitfn(Fn *fn, FILE *f)
 		fprintf(f, ".globl %s\n", fn->name);
 	fprintf(f, "%s:\n", fn->name);
 
+	if (fn->vararg) {
+		for (n=7; n>=0; n--)
+			fprintf(f, "\tstr\tq%d, [sp, -16]!\n", n);
+		for (n=7; n>=0; n--)
+			fprintf(f, "\tstr\tx%d, [sp, -8]!\n", n);
+	}
+
 	fs = framesz(fn);
+	fn->frame = fs;
 	if (fs + 16 > 512)
 		fprintf(f,
 			"\tsub\tsp, sp, #%" PRIu64 "\n"
@@ -387,16 +400,19 @@ arm64_emitfn(Fn *fn, FILE *f)
 						"\tldr\t%s, [sp, %" PRIu64 "]\n",
 						rname(*r, Kx), o -= 8
 					);
-			if (fs + 16 > 504)
+			o = fs + 16;
+			if (fn->vararg)
+				o += 192;
+			if (o > 504)
 				fprintf(f,
 					"\tldp\tx29, x30, [sp], 16\n"
 					"\tadd\tsp, sp, #%" PRIu64 "\n",
-					fs
+					o - 16
 				);
 			else
 				fprintf(f,
 					"\tldp\tx29, x30, [sp], %" PRIu64 "\n",
-					fs + 16
+					o
 				);
 			fprintf(f, "\tret\n");
 			break;

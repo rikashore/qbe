@@ -2,6 +2,7 @@
 
 typedef struct Class_ Class;
 typedef struct Insl Insl;
+typedef struct Params Params;
 
 enum {
 	Cstk = 1, /* pass on the stack */
@@ -27,6 +28,10 @@ struct Class_ {
 struct Insl {
 	Ins i;
 	Insl *link;
+};
+
+struct Params {
+	uint fp, gp, sp;
 };
 
 static int gpreg[12] = {R0, R1, R2, R3, R4, R5, R6, R7};
@@ -404,20 +409,22 @@ selcall(Fn *fn, Ins *i0, Ins *i1, Insl **ilp)
 			blit(i->arg[0], 0, i->arg[1], c->t->size, fn);
 }
 
-static int
+static Params
 selpar(Fn *fn, Ins *i0, Ins *i1)
 {
 	Class *ca, *c, cr;
 	Insl *il;
 	Ins *i;
-	int n, s;
+	int n, s, cty;
 	Ref r, env, tmp[16], *t;
+	Params p;
 
+	p = (Params){0};
 	env = R;
 	ca = alloc((i1-i0) * sizeof ca[0]);
 	curi = &insb[NIns];
 
-	argsclass(i0, i1, ca, &env);
+	cty = argsclass(i0, i1, ca, &env);
 
 	il = 0;
 	t = tmp;
@@ -459,11 +466,166 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 			emit(Ocopy, *c->cls, i->to, r, R);
 		}
 	}
+	p.sp = (s-4) / 2;
+	p.gp = (cty >> 5) & 15;
+	p.fp = (cty >> 9) & 15;
 
 	if (!req(R, env))
 		die("todo (arm abi): env calls");
 
-	return 0;
+	return p;
+}
+
+static Blk *
+split(Fn *fn, Blk *b)
+{
+	Blk *bn;
+
+	++fn->nblk;
+	bn = blknew();
+	bn->nins = &insb[NIns] - curi;
+	idup(&bn->ins, curi, bn->nins);
+	curi = &insb[NIns];
+	bn->visit = ++b->visit;
+	snprintf(bn->name, NString, "%s.%d", b->name, b->visit);
+	bn->loop = b->loop;
+	bn->link = b->link;
+	b->link = bn;
+	return bn;
+}
+
+static void
+chpred(Blk *b, Blk *bp, Blk *bp1)
+{
+	Phi *p;
+	uint a;
+
+	for (p=b->phi; p; p=p->link) {
+		for (a=0; p->blk[a]!=bp; a++)
+			assert(a+1<p->narg);
+		p->blk[a] = bp1;
+	}
+}
+
+static void
+selvaarg(Fn *fn, Blk *b, Ins *i)
+{
+	Ref loc, lreg, lstk, nr, r0, r1, c8, c16, c24, c28, c, ap;
+	Blk *b0, *bstk, *breg;
+	int isgp;
+
+	c8 = getcon(8, fn);
+	c16 = getcon(16, fn);
+	c24 = getcon(24, fn);
+	c28 = getcon(28, fn);
+	ap = i->arg[0];
+	isgp = KBASE(i->cls) == 0;
+
+	/* @b [...]
+	       r0 =l add ap, (24 or 28)
+	       nr =l loadsw r0
+	       r1 =w cultw nr, (64 or 128)
+	       jnz r1, @breg, @bstk
+	   @breg
+	       r0 =l add ap, (8 or 16)
+	       r1 =l loadl r0
+	       lreg =l add r1, nr
+	       r0 =w add nr, (8 or 16)
+	       r1 =l add ap, (24 or 28)
+	       storew r0, r1
+	   @bstk
+	       lstk =l loadl ap
+	       r0 =l add lstk, 8
+	       storel r0, ap
+	   @b0
+	       %loc =l phi @breg %lreg, @bstk %lstk
+	       i->to =(i->cls) load %loc
+	*/
+
+	loc = newtmp("abi", Kl, fn);
+	emit(Oload, i->cls, i->to, loc, R);
+	b0 = split(fn, b);
+	b0->jmp = b->jmp;
+	b0->s1 = b->s1;
+	b0->s2 = b->s2;
+	if (b->s1)
+		chpred(b->s1, b, b0);
+	if (b->s2 && b->s2 != b->s1)
+		chpred(b->s2, b, b0);
+
+	lreg = newtmp("abi", Kl, fn);
+	nr = newtmp("abi", Kl, fn);
+	r0 = newtmp("abi", Kw, fn);
+	r1 = newtmp("abi", Kl, fn);
+	emit(Ostorew, Kw, R, r0, r1);
+	emit(Oadd, Kl, r1, ap, isgp ? c24 : c28);
+	emit(Oadd, Kw, r0, nr, isgp ? c8 : c16);
+	r0 = newtmp("abi", Kl, fn);
+	r1 = newtmp("abi", Kl, fn);
+	emit(Oadd, Kl, lreg, r1, nr);
+	emit(Oload, Kl, r1, r0, R);
+	emit(Oadd, Kl, r0, ap, isgp ? c8 : c16);
+	breg = split(fn, b);
+	breg->jmp.type = Jjmp;
+	breg->s1 = b0;
+
+	lstk = newtmp("abi", Kl, fn);
+	r0 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, r0, ap);
+	emit(Oadd, Kl, r0, lstk, c8);
+	emit(Oload, Kl, lstk, ap, R);
+	bstk = split(fn, b);
+	bstk->jmp.type = Jjmp;
+	bstk->s1 = b0;
+
+	b0->phi = alloc(sizeof *b0->phi);
+	*b0->phi = (Phi){
+		.cls = Kl, .to = loc,
+		.narg = 2,
+		.blk = {bstk, breg},
+		.arg = {lstk, lreg},
+	};
+	r0 = newtmp("abi", Kl, fn);
+	r1 = newtmp("abi", Kw, fn);
+	b->jmp.type = Jjnz;
+	b->jmp.arg = r1;
+	b->s1 = breg;
+	b->s2 = bstk;
+	c = getcon(isgp ? 64 : 128, fn);
+	emit(Ocmpw+Ciult, Kw, r1, nr, c);
+	emit(Oloadsw, Kl, nr, r0, R);
+	emit(Oadd, Kl, r0, ap, isgp ? c24 : c28);
+}
+
+static void
+selvastart(Fn *fn, Params p, Ref ap)
+{
+	Ref r0, r1, rsave;
+
+	rsave = newtmp("abi", Kl, fn);
+
+	r0 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, r0, ap);
+	emit(Oadd, Kl, r0, rsave, getcon(p.sp*8+192, fn));
+
+	r0 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, rsave, r0);
+	emit(Oadd, Kl, r0, ap, getcon(8, fn));
+
+	r0 = newtmp("abi", Kl, fn);
+	r1 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, r1, r0);
+	emit(Oadd, Kl, r1, rsave, getcon(64, fn));
+	emit(Oaddr, Kl, rsave, SLOT(-1), R);
+	emit(Oadd, Kl, r0, ap, getcon(16, fn));
+
+	r0 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, getcon(p.gp*8, fn), r0);
+	emit(Oadd, Kl, r0, ap, getcon(24, fn));
+
+	r0 = newtmp("abi", Kl, fn);
+	emit(Ostorel, Kw, R, getcon(p.fp*16, fn), r0);
+	emit(Oadd, Kl, r0, ap, getcon(28, fn));
 }
 
 void
@@ -473,6 +635,7 @@ arm64_abi(Fn *fn)
 	Ins *i, *i0, *ip;
 	Insl *il;
 	int n;
+	Params p;
 
 	for (b=fn->start; b; b=b->link)
 		b->visit = 0;
@@ -481,7 +644,7 @@ arm64_abi(Fn *fn)
 	for (b=fn->start, i=b->ins; i-b->ins<b->nins; i++)
 		if (!ispar(i->op))
 			break;
-	selpar(fn, b->ins, i);
+	p = selpar(fn, b->ins, i);
 	n = b->nins - (i - b->ins) + (&insb[NIns] - curi);
 	i0 = alloc(n * sizeof(Ins));
 	ip = icpy(ip = i0, curi, &insb[NIns] - curi);
@@ -513,8 +676,10 @@ arm64_abi(Fn *fn)
 				i = i0;
 				break;
 			case Ovastart:
+				selvastart(fn, p, i->arg[0]);
+				break;
 			case Ovaarg:
-				die("todo (arm abi): vastart and vaarg");
+				selvaarg(fn, b, i);
 				break;
 			case Oarg:
 			case Oargc:
