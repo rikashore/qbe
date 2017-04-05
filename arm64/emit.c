@@ -4,6 +4,7 @@ typedef struct E E;
 
 struct E {
 	FILE *f;
+	Fn *fn;
 	uint64_t frame;
 	uint padding;
 };
@@ -130,13 +131,13 @@ rname(int r, int k)
 }
 
 static uint64_t
-slot(int s, Fn *fn, E *e)
+slot(int s, E *e)
 {
 	s = ((int32_t)s << 3) >> 3;
 	if (s == -1)
 		return 16 + e->frame;
 	if (s < 0) {
-		if (fn->vararg)
+		if (e->fn->vararg)
 			return 16 + e->frame + 192 - (s+2)*8;
 		else
 			return 16 + e->frame - (s+2)*8;
@@ -145,7 +146,7 @@ slot(int s, Fn *fn, E *e)
 }
 
 static void
-emitf(char *s, Ins *i, Fn *fn, E *e)
+emitf(char *s, Ins *i, E *e)
 {
 	Ref r;
 	int k, c;
@@ -204,7 +205,7 @@ emitf(char *s, Ins *i, Fn *fn, E *e)
 				fputs(rname(r.val, k), e->f);
 				break;
 			case RCon:
-				pc = &fn->con[r.val];
+				pc = &e->fn->con[r.val];
 				n = pc->bits.i;
 				assert(pc->type == CBits);
 				if (n & 0xfff000)
@@ -266,7 +267,7 @@ loadcon(Con *c, int r, int k, FILE *f)
 }
 
 static void
-emitins(Ins *i, Fn *fn, E *e)
+emitins(Ins *i, E *e)
 {
 	int o;
 
@@ -287,7 +288,7 @@ emitins(Ins *i, Fn *fn, E *e)
 			|| (omap[o].cls == Ki && KBASE(i->cls) == 0))
 				break;
 		}
-		emitf(omap[o].asm, i, fn, e);
+		emitf(omap[o].asm, i, e);
 		break;
 	case Onop:
 		break;
@@ -296,30 +297,30 @@ emitins(Ins *i, Fn *fn, E *e)
 			break;
 		if (rtype(i->arg[0]) != RCon)
 			goto Table;
-		loadcon(&fn->con[i->arg[0].val], i->to.val, i->cls, e->f);
+		loadcon(&e->fn->con[i->arg[0].val], i->to.val, i->cls, e->f);
 		break;
 	case Oaddr:
 		assert(rtype(i->arg[0]) == RSlot);
 		fprintf(e->f, "\tadd\t%s, x29, #%"PRIu64"\n",
-			rname(i->to.val, Kl), slot(i->arg[0].val, fn, e)
+			rname(i->to.val, Kl), slot(i->arg[0].val, e)
 		);
 		break;
 	}
 }
 
 static void
-framelayout(Fn *fn, E *e)
+framelayout(E *e)
 {
 	int *r;
 	uint o;
 	uint64_t f;
 
 	for (o=0, r=arm64_rclob; *r>=0; r++)
-		o += 1 & (fn->reg >> *r);
-	f = fn->slot;
+		o += 1 & (e->fn->reg >> *r);
+	f = e->fn->slot;
 	f = (f + 3) & -4;
-	e->padding = 4 * (f-fn->slot);
 	o += o & 1;
+	e->padding = 4*(f-e->fn->slot);
 	e->frame = 4*f + 8*o;
 }
 
@@ -365,20 +366,21 @@ arm64_emitfn(Fn *fn, FILE *out)
 	Ins *i;
 	E *e;
 
-	e = &(E){.f = out};
-	fprintf(e->f, ".text\n");
-	if (fn->export)
-		fprintf(e->f, ".globl %s\n", fn->name);
-	fprintf(e->f, "%s:\n", fn->name);
+	e = &(E){.f = out, .fn = fn};
+	framelayout(e);
 
-	if (fn->vararg) {
+	fprintf(e->f, ".text\n");
+	if (e->fn->export)
+		fprintf(e->f, ".globl %s\n", e->fn->name);
+	fprintf(e->f, "%s:\n", e->fn->name);
+
+	if (e->fn->vararg) {
 		for (n=7; n>=0; n--)
 			fprintf(e->f, "\tstr\tq%d, [sp, -16]!\n", n);
 		for (n=7; n>=0; n--)
 			fprintf(e->f, "\tstr\tx%d, [sp, -8]!\n", n);
 	}
 
-	framelayout(fn, e);
 	if (e->frame + 16 > 512)
 		fprintf(e->f,
 			"\tsub\tsp, sp, #%"PRIu64"\n"
@@ -392,28 +394,28 @@ arm64_emitfn(Fn *fn, FILE *out)
 		);
 	fputs("\tadd\tx29, sp, 0\n", e->f);
 	for (o=e->frame+16, r=arm64_rclob; *r>=0; r++)
-		if (fn->reg & BIT(*r))
+		if (e->fn->reg & BIT(*r))
 			fprintf(e->f,
 				"\tstr\t%s, [sp, %"PRIu64"]\n",
 				rname(*r, Kx), o -= 8
 			);
 
-	for (lbl=0, b=fn->start; b; b=b->link) {
+	for (lbl=0, b=e->fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
 			fprintf(e->f, ".L%d:\n", id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
-			emitins(i, fn, e);
+			emitins(i, e);
 		lbl = 1;
 		switch (b->jmp.type) {
 		case Jret0:
 			for (o=e->frame+16, r=arm64_rclob; *r>=0; r++)
-				if (fn->reg & BIT(*r))
+				if (e->fn->reg & BIT(*r))
 					fprintf(e->f,
 						"\tldr\t%s, [sp, %"PRIu64"]\n",
 						rname(*r, Kx), o -= 8
 					);
 			o = e->frame + 16;
-			if (fn->vararg)
+			if (e->fn->vararg)
 				o += 192;
 			if (o > 504)
 				fprintf(e->f,
@@ -449,5 +451,5 @@ arm64_emitfn(Fn *fn, FILE *out)
 			goto Jmp;
 		}
 	}
-	id0 += fn->nblk;
+	id0 += e->fn->nblk;
 }
