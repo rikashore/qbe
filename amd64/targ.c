@@ -24,4 +24,7 @@ Target T_amd64_sysv = {
 	.retregs = amd64_sysv_retregs,
 	.argregs = amd64_sysv_argregs,
 	.memargs = amd64_memargs,
+	.abi = amd64_sysv_abi,
+	.isel = amd64_isel,
+	.emitfn = amd64_emitfn,
 };

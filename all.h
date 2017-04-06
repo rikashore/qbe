@@ -51,6 +51,9 @@ struct Target {
 	bits (*retregs)(Ref, int[2]);
 	bits (*argregs)(Ref, int[2]);
 	int (*memargs)(int);
+	void (*abi)(Fn *);
+	void (*isel)(Fn *);
+	void (*emitfn)(Fn *, FILE *);
 };
 
 #define BIT(n) ((bits)1 << (n))

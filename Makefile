@@ -54,7 +54,16 @@ clean-gen: clean
 	rm -f config.h
 
 check: $(OBJDIR)/$(BIN)
-	tools/unit.sh all
+	@for t in amd64_sysv arm64; do          \
+		echo "Testing target $$t...";   \
+		echo "----";                    \
+		TARGET=$$t tools/test.sh all || \
+			exit $$?;               \
+		echo;                           \
+	done
+
+check-%:
+	TARGET=$* tools/test.sh all
 
 src:
 	@echo $(SRCALL)
