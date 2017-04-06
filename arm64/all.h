@@ -1,5 +1,3 @@
-#ifndef MAIN
-
 #include "../all.h"
 
 enum Arm64Reg {
@@ -21,8 +19,6 @@ enum Arm64Reg {
 	NCLR = (R28 - R19 + 1) + (V15 - V8 + 1),
 };
 MAKESURE(reg_not_tmp, V30 < (int)Tmp0);
-
-#endif
 
 /* targ.c */
 extern int arm64_rsave[];

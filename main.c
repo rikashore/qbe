@@ -1,6 +1,4 @@
-#define MAIN
-#include "amd64/all.h" /* fixme */
-#include "arm64/all.h" /* fixme */
+#include "all.h"
 #include "config.h"
 #include <ctype.h>
 #include <getopt.h>

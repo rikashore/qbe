@@ -32,7 +32,7 @@ $(OBJDIR)/timestamp:
 $(OBJ): all.h ops.h
 $(AMD64OBJ): amd64/all.h
 $(ARM64OBJ): arm64/all.h
-obj/main.o: config.h amd64/all.h arm64/all.h # fixme
+obj/main.o: config.h
 
 config.h:
 	@case `uname` in                                 \
