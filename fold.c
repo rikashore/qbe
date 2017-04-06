@@ -100,7 +100,7 @@ visitins(Ins *i, Fn *fn)
 
 	if (rtype(i->to) != RTmp)
 		return;
-	if (opdesc[i->op].cfold) {
+	if (optab[i->op].canfold) {
 		l = latval(i->arg[0]);
 		if (!req(i->arg[1], R))
 			r = latval(i->arg[1]);
@@ -114,7 +114,7 @@ visitins(Ins *i, Fn *fn)
 			v = opfold(i->op, i->cls, &fn->con[l], &fn->con[r], fn);
 	} else
 		v = Bot;
-	/* fprintf(stderr, "\nvisiting %s (%p)", opdesc[i->op].name, (void *)i); */
+	/* fprintf(stderr, "\nvisiting %s (%p)", optab[i->op].name, (void *)i); */
 	update(i->to.val, v, fn);
 }
 
@@ -360,7 +360,7 @@ foldint(Con *res, int op, int w, Con *cl, Con *cr)
 	else if (cl->type == CAddr || cr->type == CAddr) {
 		if (Ocmpl <= op && op <= Ocmpl1)
 			return 1;
-		err("invalid address operand for '%s'", opdesc[op].name);
+		err("invalid address operand for '%s'", optab[op].name);
 	}
 	switch (op) {
 	case Oadd:  x = l.u + r.u; break;
@@ -453,7 +453,7 @@ foldflt(Con *res, int op, int w, Con *cl, Con *cr)
 	double xd, ld, rd;
 
 	if (cl->type != CBits || cr->type != CBits)
-		err("invalid address operand for '%s'", opdesc[op].name);
+		err("invalid address operand for '%s'", optab[op].name);
 	if (w)  {
 		ld = cl->bits.d;
 		rd = cr->bits.d;
@@ -495,7 +495,7 @@ opfold(int op, int cls, Con *cl, Con *cr, Fn *fn)
 
 	if ((op == Odiv || op == Oudiv
 	|| op == Orem || op == Ourem) && czero(cr, KWIDE(cls)))
-		err("null divisor in '%s'", opdesc[op].name);
+		err("null divisor in '%s'", optab[op].name);
 	if (cls == Kw || cls == Kl) {
 		if (foldint(&c, op, cls == Kl, cl, cr))
 			return Bot;

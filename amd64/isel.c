@@ -205,7 +205,7 @@ sel(Ins i, ANum *an, Fn *fn)
 			r0 = i.arg[1];
 		if (fn->tmp[r0.val].slot != -1)
 			err("unlikely argument %%%s in %s",
-				fn->tmp[r0.val].name, opdesc[i.op].name);
+				fn->tmp[r0.val].name, optab[i.op].name);
 		if (i.op == Odiv || i.op == Orem) {
 			emit(Oxidiv, k, R, r0, R);
 			emit(Osign, k, TMP(RDX), TMP(RAX), R);
@@ -294,7 +294,7 @@ Emit:
 			emit(Oadd, Kl, r1, i.arg[0], getcon(15, fn));
 			if (fn->tmp[i.arg[0].val].slot != -1)
 				err("unlikely argument %%%s in %s",
-					fn->tmp[i.arg[0].val].name, opdesc[i.op].name);
+					fn->tmp[i.arg[0].val].name, optab[i.op].name);
 		}
 		break;
 	default:
@@ -309,7 +309,7 @@ Emit:
 				i1->op = Oflag + cmpop(x);
 			break;
 		}
-		die("unknown instruction %s", opdesc[i.op].name);
+		die("unknown instruction %s", optab[i.op].name);
 	}
 
 	while (i0 > curi && --i0) {
@@ -323,9 +323,9 @@ flagi(Ins *i0, Ins *i)
 {
 	while (i>i0) {
 		i--;
-		if (opdesc[i->op].sflag)
+		if (amd64_op[i->op].zflag)
 			return i;
-		if (opdesc[i->op].lflag)
+		if (amd64_op[i->op].lflag)
 			continue;
 		return 0;
 	}

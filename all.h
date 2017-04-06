@@ -15,7 +15,7 @@ typedef unsigned long long bits;
 
 typedef struct BSet BSet;
 typedef struct Ref Ref;
-typedef struct OpDesc OpDesc;
+typedef struct Op Op;
 typedef struct Ins Ins;
 typedef struct Phi Phi;
 typedef struct Blk Blk;
@@ -50,6 +50,7 @@ struct Target {
 	int nrsave[2];
 	bits (*retregs)(Ref, int[2]);
 	bits (*argregs)(Ref, int[2]);
+	int (*memargs)(int);
 };
 
 #define BIT(n) ((bits)1 << (n))
@@ -131,14 +132,14 @@ enum CmpF {
 	NCmp = NCmpI + NCmpF,
 };
 
-enum Op {
+enum O {
 	Oxxx,
-#define OP(op, x, y) O##op,
+#define O(op, x, y) O##op,
 	#include "ops.h"
 	NOp,
 };
 
-enum Jmp {
+enum J {
 	Jxxx,
 #define JMPS(X)                                 \
 	X(ret0)   X(retw)   X(retl)   X(rets)   \
@@ -190,13 +191,10 @@ enum Class {
 #define KWIDE(k) ((k)&1)
 #define KBASE(k) ((k)>>1)
 
-struct OpDesc {
+struct Op {
 	char *name;
 	short argcls[2][4];
-	uint cfold:1; /* can fold */
-	uint sflag:1; /* sets the zero flag */
-	uint lflag:1; /* leaves flags */
-	int nmem;
+	int canfold;
 };
 
 struct Ins {
@@ -453,7 +451,7 @@ bshas(BSet *bs, uint elt)
 }
 
 /* parse.c */
-extern OpDesc opdesc[NOp];
+extern Op optab[NOp];
 void parse(FILE *, char *, void (Dat *), void (Fn *));
 void printfn(Fn *, FILE *);
 void printref(Ref, Fn *, FILE *);

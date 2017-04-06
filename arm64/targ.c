@@ -18,6 +18,13 @@ int arm64_rclob[] = {
 
 #define RGLOB (BIT(FP) | BIT(SP) | BIT(R18))
 
+static int
+arm64_memargs(int op)
+{
+	(void)op;
+	return 0;
+}
+
 Target T_arm64 = {
 	.gpr0 = R0,
 	.ngpr = NGPR,
@@ -29,6 +36,7 @@ Target T_arm64 = {
 	.nrsave = {NGPS, NFPS},
 	.retregs = arm64_retregs,
 	.argregs = arm64_argregs,
+	.memargs = arm64_memargs,
 };
 
 MAKESURE(globals_are_not_arguments,

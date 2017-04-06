@@ -1,6 +1,8 @@
 #include "../all.h"
 
-enum amd64_Reg {
+typedef struct Amd64Op Amd64Op;
+
+enum Amd64Reg {
 	RAX = RXX+1, /* caller-save */
 	RCX,
 	RDX,
@@ -43,8 +45,16 @@ enum amd64_Reg {
 	NFPS = NFPR,
 	NCLR = R15 - RBX + 1,
 };
-
 MAKESURE(reg_not_tmp, XMM15 < (int)Tmp0);
+
+struct Amd64Op {
+	char nmem;
+	char zflag;
+	char lflag;
+};
+
+/* targ.c */
+extern Amd64Op amd64_op[];
 
 /* sysv.c (abi) */
 extern int amd64_sysv_rsave[];

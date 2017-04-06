@@ -1,5 +1,17 @@
 #include "all.h"
 
+Amd64Op amd64_op[NOp] = {
+#define O(op, t, x) [O##op] =
+#define X(nm, zf, lf) { nm, zf, lf, },
+	#include "../ops.h"
+};
+
+static int
+amd64_memargs(int op)
+{
+	return amd64_op[op].nmem;
+}
+
 Target T_amd64_sysv = {
 	.gpr0 = RAX,
 	.ngpr = NGPR,
@@ -11,4 +23,5 @@ Target T_amd64_sysv = {
 	.nrsave = {NGPS, NFPS},
 	.retregs = amd64_sysv_retregs,
 	.argregs = amd64_sysv_argregs,
+	.memargs = amd64_memargs,
 };

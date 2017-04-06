@@ -368,7 +368,7 @@ emitins(Ins i, Fn *fn, FILE *f)
 			 * search */
 			if (omap[o].op == NOp)
 				die("no match for %s(%d)",
-					opdesc[i.op].name, "wlsd"[i.cls]);
+					optab[i.op].name, "wlsd"[i.cls]);
 			if (omap[o].op == i.op)
 			if (omap[o].cls == i.cls
 			|| (omap[o].cls == Ki && KBASE(i.cls) == 0)

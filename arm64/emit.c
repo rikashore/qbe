@@ -282,7 +282,7 @@ emitins(Ins *i, E *e)
 			 * search */
 			if (omap[o].op == NOp)
 				die("no match for %s(%c)",
-					opdesc[i->op].name, "wlsd"[i->cls]);
+					optab[i->op].name, "wlsd"[i->cls]);
 			if (omap[o].op == i->op)
 			if (omap[o].cls == i->cls || omap[o].cls == Ka
 			|| (omap[o].cls == Ki && KBASE(i->cls) == 0))

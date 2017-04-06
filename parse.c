@@ -7,9 +7,8 @@ enum {
 	Km = Kl, /* Memory pointer */
 };
 
-OpDesc opdesc[NOp] = {
-#define OP(op, t, cf) [O##op]={#op, t, cf,
-#define X64(nm, sf, lf) sf, lf, nm},
+Op optab[NOp] = {
+#define O(op, t, cf) [O##op]={#op, t, cf},
 	#include "ops.h"
 };
 
@@ -165,8 +164,8 @@ lexinit()
 	if (done)
 		return;
 	for (i=0; i<NPubOp; ++i)
-		if (opdesc[i].name)
-			kwmap[i] = opdesc[i].name;
+		if (optab[i].name)
+			kwmap[i] = optab[i].name;
 	assert(Ntok <= CHAR_MAX);
 	for (i=0; i<Ntok; ++i)
 		if (kwmap[i]) {
@@ -733,26 +732,26 @@ typecheck(Fn *fn)
 		}
 		for (i=b->ins; i-b->ins < b->nins; i++)
 			for (n=0; n<2; n++) {
-				k = opdesc[i->op].argcls[n][i->cls];
+				k = optab[i->op].argcls[n][i->cls];
 				r = i->arg[n];
 				t = &fn->tmp[r.val];
 				if (k == Ke)
 					err("invalid instruction type in %s",
-						opdesc[i->op].name);
+						optab[i->op].name);
 				if (rtype(r) == RType)
 					continue;
 				if (rtype(r) != -1 && k == Kx)
 					err("no %s operand expected in %s",
 						n == 1 ? "second" : "first",
-						opdesc[i->op].name);
+						optab[i->op].name);
 				if (rtype(r) == -1 && k != Kx)
 					err("missing %s operand in %s",
 						n == 1 ? "second" : "first",
-						opdesc[i->op].name);
+						optab[i->op].name);
 				if (!usecheck(r, k, fn))
 					err("invalid type for %s operand %%%s in %s",
 						n == 1 ? "second" : "first",
-						t->name, opdesc[i->op].name);
+						t->name, optab[i->op].name);
 			}
 		r = b->jmp.arg;
 		if (isret(b->jmp.type)) {
@@ -1197,8 +1196,8 @@ printfn(Fn *fn, FILE *f)
 				printref(i->to, fn, f);
 				fprintf(f, " =%c ", ktoc[i->cls]);
 			}
-			assert(opdesc[i->op].name);
-			fprintf(f, "%s", opdesc[i->op].name);
+			assert(optab[i->op].name);
+			fprintf(f, "%s", optab[i->op].name);
 			if (req(i->to, R))
 				switch (i->op) {
 				case Oarg:

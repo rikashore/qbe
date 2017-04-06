@@ -114,7 +114,7 @@ iscmp(int op, int *pk, int *pc)
 int
 argcls(Ins *i, int n)
 {
-	return opdesc[i->op].argcls[n][i->cls];
+	return optab[i->op].argcls[n][i->cls];
 }
 
 void

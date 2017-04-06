@@ -402,7 +402,7 @@ spill(Fn *fn)
 					bsset(w, t);
 				}
 			}
-			j = opdesc[i->op].nmem;
+			j = T.memargs(i->op);
 			for (n=0; n<2; n++)
 				if (rtype(i->arg[n]) == RMem)
 					j--;
