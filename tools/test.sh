@@ -115,17 +115,22 @@ case "$TARGET" in
 		do
 			cc="${pref}-gcc"
 			run="qemu-aarch64 -L /usr/${pref}"
-			if $cc -v >/dev/null 2>&1
+			if
+				$cc -v >/dev/null 2>&1 &&
+				$run -version >/dev/null 2>&1
 			then
 				break
 			fi
+			cc=""
 		done
-		test -z "$cc" &&
-			echo "no arm64 assembler found" &&
+		if test -z "$cc"
+		then
+			echo "Skipping arm64 tests."
 			exit 0
+		fi
 		;;
 	amd64_sysv)
-		cc=cc
+		cc="cc"
 		;;
 	*)
 		echo "unknown target '$TARGET'"
