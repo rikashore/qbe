@@ -55,8 +55,7 @@ clean-gen: clean
 
 check: $(OBJDIR)/$(BIN)
 	@for t in amd64_sysv arm64; do          \
-		echo "Testing target $$t...";   \
-		echo "----";                    \
+		echo "          ---- Target $$t ----"; \
 		TARGET=$$t tools/test.sh all || \
 			exit $$?;               \
 		echo;                           \
