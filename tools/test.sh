@@ -10,7 +10,7 @@ asm=$tmp.s
 exe=$tmp.exe
 out=$tmp.out
 
-setup() {
+init() {
 	case "$TARGET" in
 	arm64)
 		for p in aarch64-linux-musl aarch64-linux-gnu
@@ -31,6 +31,7 @@ setup() {
 			echo "Cannot find arm64 compiler or qemu."
 			exit 1
 		fi
+                bin="$bin -t arm64"
 		;;
 	"")
 		case `uname` in
@@ -41,7 +42,6 @@ setup() {
 			cc="cc"
 			;;
 		esac
-		TARGET="amd64_sysv"
 		;;
 	*)
 		echo "Unknown target '$TARGET'."
@@ -91,7 +91,7 @@ once() {
 
 	printf "%-45s" "$(basename $t)..."
 
-	if ! $bin -t $TARGET -o $asm $t
+	if ! $bin -o $asm $t
 	then
 		echo "[qbe fail]"
 		return 1
@@ -135,7 +135,7 @@ once() {
 
 #trap cleanup TERM QUIT
 
-setup
+init
 
 if test -z "$1"
 then
@@ -145,21 +145,21 @@ fi
 
 case "$1" in
 "all")
-	f=0
+	fail=0
 	for t in $dir/../test/[!_]*.ssa
 	do
 		once $t
-		f=`expr $f + $?`
+		fail=`expr $fail + $?`
 	done
-	if test $f -ge 1
+	if test $fail -ge 1
 	then
 		echo
-		echo "$f test(s) failed!"
+		echo "$fail test(s) failed!"
 	else
 		echo
 		echo "All is fine!"
 	fi
-	exit $f
+	exit $fail
 	;;
 *)
 	once $1
