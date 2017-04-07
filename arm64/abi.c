@@ -132,7 +132,7 @@ sttmps(Ref tmp[], int cls[], uint nreg, Ref mem, Fn *fn)
 	uint64_t off;
 	Ref r;
 
-	assert(n <= 4);
+	assert(nreg <= 4);
 	off = 0;
 	for (n=0; n<nreg; n++) {
 		tmp[n] = newtmp("abi", cls[n], fn);

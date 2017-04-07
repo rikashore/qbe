@@ -37,7 +37,7 @@ obj/main.o: config.h
 config.h:
 	@case `uname` in                               \
 	*Darwin*)                                      \
-		echo "#define Defasm Gasosx";          \
+		echo "#define Defasm Gasmacho";        \
 		echo "#define Deftgt T_amd64_sysv";    \
 		;;                                     \
 	*)                                             \
