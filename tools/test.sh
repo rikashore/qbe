@@ -13,14 +13,14 @@ out=$tmp.out
 setup() {
 	case "$TARGET" in
 	arm64)
-		for pref in aarch64-linux-musl aarch64-linux-gnu
+		for p in aarch64-linux-musl aarch64-linux-gnu
 		do
-			cc=${pref}-gcc
-			qemu="qemu-aarch64 -L /usr/$pref"
+			cc=$p-gcc
+			qemu="qemu-aarch64 -L /usr/$p"
 			if
 				$cc -v >/dev/null 2>&1 &&
 				$qemu -version >/dev/null 2>&1 &&
-				test -d /usr/$pref
+				test -d /usr/$p
 			then
 				break
 			fi
