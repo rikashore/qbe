@@ -35,9 +35,22 @@ $(ARM64OBJ): arm64/all.h
 obj/main.o: config.h
 
 config.h:
-	@case `uname` in                                 \
-	*Darwin*)  echo "#define Defaultasm Gasmacho" ;; \
-	*)         echo "#define Defaultasm Gaself" ;;   \
+	@case `uname` in                               \
+	*Darwin*)                                      \
+		echo "#define Defasm Gasosx";          \
+		echo "#define Deftgt T_amd64_sysv";    \
+		;;                                     \
+	*)                                             \
+		echo "#define Defasm Gaself";          \
+		case `uname -m` in                     \
+		*aarch64*)                             \
+			echo "$define Deftgt T_arm64"; \
+			;;                             \
+		*)                                     \
+			echo "#define Deftgt T_amd64_sysv";\
+			;;                             \
+		esac                                   \
+		;;                                     \
 	esac > $@
 
 install: $(OBJDIR)/$(BIN)

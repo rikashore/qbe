@@ -5,7 +5,8 @@
 
 Target T;
 
-extern Target T_amd64_sysv, T_arm64;
+extern Target T_amd64_sysv;
+extern Target T_arm64;
 
 static struct TMap {
 	char *name;
@@ -111,8 +112,8 @@ main(int ac, char *av[])
 	char *f, *sep;
 	int c, asm;
 
-	asm = Defaultasm;
-	T = T_amd64_sysv;
+	asm = Defasm;
+	T = Deftgt;
 	outf = stdout;
 	while ((c = getopt(ac, av, "hd:o:G:t:")) != -1)
 		switch (c) {
