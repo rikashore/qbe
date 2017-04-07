@@ -10,6 +10,46 @@ asm=$tmp.s
 exe=$tmp.exe
 out=$tmp.out
 
+setup() {
+	case "$TARGET" in
+	arm64)
+		for pref in aarch64-linux-musl aarch64-linux-gnu
+		do
+			cc=${pref}-gcc
+			qemu="qemu-aarch64 -L /usr/$pref"
+			if
+				$cc -v >/dev/null 2>&1 &&
+				$qemu -version >/dev/null 2>&1 &&
+				test -d /usr/$pref
+			then
+				break
+			fi
+			cc=
+		done
+		if test -z "$cc"
+		then
+			echo "Cannot find arm64 compiler or qemu."
+			exit 1
+		fi
+		;;
+	"")
+		case `uname` in
+		*OpenBSD*)
+			cc="cc -nopie"
+			;;
+		*)
+			cc="cc"
+			;;
+		esac
+		TARGET="amd64_sysv"
+		;;
+	*)
+		echo "Unknown target '$TARGET'."
+		exit 1
+		;;
+	esac
+}
+
 cleanup() {
 	rm -f $drv $asm $exe $out
 }
@@ -67,7 +107,7 @@ once() {
 		src="$asm"
 	fi
 
-	if ! $cc $PIE -g -o $exe $src
+	if ! $cc -g -o $exe $src
 	then
 		echo "[cc fail]"
 		return 1
@@ -75,11 +115,11 @@ once() {
 
 	if test -s $out
 	then
-		$run $exe a b c | diff - $out
+		$qemu $exe a b c | diff - $out
 		ret=$?
 		reason="output"
 	else
-		$run $exe a b c
+		$qemu $exe a b c
 		ret=$?
 		reason="returned $RET"
 	fi
@@ -93,50 +133,9 @@ once() {
 	echo "[ok]"
 }
 
-
 #trap cleanup TERM QUIT
 
-case `uname -m` in
-	x86_64)
-		;;
-	*)
-		echo "tests cannot be run on `uname -m`"
-		exit 0
-		;;
-esac
-
-TARGET=${TARGET:-amd64_sysv}
-
-case "$TARGET" in
-	arm64)
-		for pref in          \
-		  aarch64-linux-musl \
-		  aarch64-linux-gnu
-		do
-			cc="${pref}-gcc"
-			run="qemu-aarch64 -L /usr/${pref}"
-			if
-				$cc -v >/dev/null 2>&1 &&
-				$run -version >/dev/null 2>&1
-			then
-				break
-			fi
-			cc=""
-		done
-		if test -z "$cc"
-		then
-			echo "Skipping arm64 tests."
-			exit 0
-		fi
-		;;
-	amd64_sysv)
-		cc="cc"
-		;;
-	*)
-		echo "unknown target '$TARGET'"
-		exit 1
-		;;
-esac
+setup
 
 if test -z "$1"
 then
@@ -144,35 +143,26 @@ then
 	exit 1
 fi
 
-for wtf in -nopie -no-pie
-do
-	if echo "int main() { return 0; }" |
-	   $cc $wtf -x c -o /dev/null - >/dev/null 2>&1
+case "$1" in
+"all")
+	f=0
+	for t in $dir/../test/[!_]*.ssa
+	do
+		once $t
+		f=`expr $f + $?`
+	done
+	if test $f -ge 1
 	then
-		PIE=$wtf
+		echo
+		echo "$f test(s) failed!"
+	else
+		echo
+		echo "All is fine!"
 	fi
-done
-
-case $1 in
-	"all")
-		f=0
-		for t in $dir/../test/[!_]*.ssa
-		do
-			once $t
-			f=`expr $f + $?`
-		done
-		if test $f -ge 1
-		then
-			echo
-			echo "$f test(s) failed!"
-		else
-			echo
-			echo "All is fine!"
-		fi
-		exit $f
-		;;
-	*)
-		once $1
-		exit $?
-		;;
+	exit $f
+	;;
+*)
+	once $1
+	exit $?
+	;;
 esac

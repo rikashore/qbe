@@ -54,15 +54,10 @@ clean-gen: clean
 	rm -f config.h
 
 check: $(OBJDIR)/$(BIN)
-	@for t in amd64_sysv arm64; do          \
-		echo "          ---- Target $$t ----"; \
-		TARGET=$$t tools/test.sh all || \
-			exit $$?;               \
-		echo;                           \
-	done
+	tools/test.sh all
 
-check-%:
-	TARGET=$* tools/test.sh all
+check-arm64: $(OBJDIR)/$(BIN)
+	TARGET=arm64 tools/test.sh all
 
 src:
 	@echo $(SRCALL)
@@ -77,4 +72,4 @@ src:
 		}" < $$F;                          \
 	done
 
-.PHONY: clean clean-gen check src 80 install uninstall
+.PHONY: clean clean-gen check check-arm64 src 80 install uninstall
