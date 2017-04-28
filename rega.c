@@ -239,7 +239,7 @@ pmrec(enum PMStat *status, int i, int *k)
 			emit(Oswap, *k, R, pm[i].src, pm[i].dst);
 			break;
 		}
-		/* fallthrough */
+		/* fall through */
 	case Moved:
 		c = -1;
 		emit(Ocopy, pm[i].cls, pm[i].dst, pm[i].src, R);
