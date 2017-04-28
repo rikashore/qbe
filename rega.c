@@ -251,17 +251,15 @@ pmrec(enum PMStat *status, int i, int *k)
 static void
 pmgen()
 {
-	int i, k;
+	int i;
 	enum PMStat *status;
 
 	status = alloc(npm * sizeof status[0]);
 	assert(!npm || status[npm-1] == ToMove);
 	curi = &insb[NIns];
 	for (i=0; i<npm; i++)
-		if (status[i] == ToMove) {
-			k = pm[i].cls;
-			pmrec(status, i, &k);
-		}
+		if (status[i] == ToMove)
+			pmrec(status, i, (int[]){pm[i].cls});
 	i = &insb[NIns] - curi;
 	memmove(insb, curi, i * sizeof(Ins));
 	curi = insb + i;
