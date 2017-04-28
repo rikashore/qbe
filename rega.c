@@ -162,12 +162,12 @@ rfree(RMap *m, int t)
 static void
 reager(RMap *m, int r)
 {
-	uint n;
 	int h, rh;
 
 	/* eagerly change the register of a
 	 * hinted temporary
 	 */
+	return;
 	assert(r > RXX && r < Tmp0 && !bshas(m->b, r));
 	while ((h = m->w[r]) != 0) {
 		rh = rfree(m, h);
@@ -209,11 +209,10 @@ pmadd(Ref src, Ref dst, int k)
 
 enum PMStat { ToMove, Moving, Moved };
 
-static Ref
+static int
 pmrec(enum PMStat *status, int i, int *k)
 {
-	Ref swp, swp1;
-	int j, k1;
+	int j, k1, c;
 
 	/* note, this routine might emit
 	 * too many large instructions:
@@ -228,42 +227,40 @@ pmrec(enum PMStat *status, int i, int *k)
 	 */
 
 	if (req(pm[i].src, pm[i].dst))
-		return R;
+		return -1;
 	status[i] = Moving;
 	assert(KBASE(*k) == KBASE(pm[i].cls));
-	assert((Kw|1) == Kl && (Ks|1) == Kd);
 	*k |= KWIDE(pm[i].cls); /* see above */
-	swp = R;
-	for (j=0; j<npm; j++) {
-		if (req(pm[j].src, pm[i].dst))
-			switch (status[j]) {
-			case ToMove:
-				k1 = *k;
-				swp1 = pmrec(status, j, &k1);
-				if (!req(swp1, R)) {
-					assert(req(swp, R));
-					swp = swp1;
-					*k = k1;
-				}
-				break;
-			case Moving:
-				assert(req(swp, R));
-				swp = pm[i].dst;
-				break;
-			case Moved:
-				break;
-			}
+	for (j=0; j<npm; j++)
+		if (req(pm[j].dst, pm[i].src))
+			break;
+	if (j == npm)
+		goto Moved;
+	switch (status[j]) {
+	case ToMove:
+		k1 = *k;
+		c = pmrec(status, j, &k1);
+		if (c == i) {
+			c = -1;
+			break;
+		}
+		if (c == -1)
+			goto Moved;
+		*k = k1;
+		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
+		break;
+	case Moving:
+		c = j;
+		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
+		break;
+	case Moved:
+	Moved:
+		c = -1;
+		emit(Ocopy, pm[i].cls, pm[i].dst, pm[i].src, R);
+		break;
 	}
 	status[i] = Moved;
-	if (req(swp, R)) {
-		*curi++ = (Ins){Ocopy, pm[i].dst, {pm[i].src}, pm[i].cls};
-		return R;
-	} else if (!req(swp, pm[i].src)) {
-		*curi++ = (Ins){Oswap, R, {pm[i].src, pm[i].dst}, *k};
-		return swp;
-	} else
-		return R;
-
+	return c;
 }
 
 static void
@@ -274,12 +271,15 @@ pmgen()
 
 	status = alloc(npm * sizeof status[0]);
 	assert(!npm || status[npm-1] == ToMove);
-	curi = insb;
+	curi = &insb[NIns];
 	for (i=0; i<npm; i++)
 		if (status[i] == ToMove) {
 			k = pm[i].cls;
 			pmrec(status, i, &k);
 		}
+	i = &insb[NIns] - curi;
+	memmove(insb, curi, i * sizeof(Ins));
+	curi = insb + i;
 }
 
 static void
