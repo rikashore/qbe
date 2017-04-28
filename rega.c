@@ -169,13 +169,15 @@ reager(RMap *m, int r)
 	 */
 	return;
 	assert(r > RXX && r < Tmp0 && !bshas(m->b, r));
-	while ((h = m->w[r]) != 0) {
+	h = m->w[r];
+	if (h != 0) {
 		rh = rfree(m, h);
 		assert(rh != -1);
 		ralloc(m, h);
 		assert(bshas(m->b, r));
 		m->w[r] = 0;
-		r = rh;
+		emit(Ocopy, tmp[h].cls, TMP(rh), TMP(r), R);
+		reager(m, rh);
 	}
 }
 
