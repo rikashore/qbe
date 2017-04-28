@@ -217,8 +217,9 @@ pmrec(enum PMStat *status, int i, int *k)
 		status[i] = Moved;
 		return -1;
 	}
-	assert((Kw|1) == Kl && (Ks|1) == Kd);
-	*k |= KWIDE(pm[i].cls);
+	assert(KBASE(pm[i].cls) == KBASE(*k));
+	assert((Kw|Kl) == Kl && (Ks|Kd) == Kd);
+	*k |= pm[i].cls;
 	for (j=0; j<npm; j++)
 		if (req(pm[j].dst, pm[i].src))
 			break;
