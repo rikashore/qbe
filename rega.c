@@ -257,13 +257,9 @@ pmgen()
 
 	status = alloc(npm * sizeof status[0]);
 	assert(!npm || status[npm-1] == ToMove);
-	curi = &insb[NIns];
 	for (i=0; i<npm; i++)
 		if (status[i] == ToMove)
 			pmrec(status, i, (int[]){pm[i].cls});
-	i = &insb[NIns] - curi;
-	memmove(insb, curi, i * sizeof(Ins));
-	curi = insb + i;
 }
 
 static void
@@ -298,7 +294,7 @@ dopm(Blk *b, Ins *i, RMap *m)
 {
 	RMap m0;
 	int n, r, r1, t, s;
-	Ins *i0, *i1, *ip, *ir;
+	Ins *i1, *ip;
 	bits def;
 
 	m0 = *m; /* okay since we don't use m0.b */
@@ -333,17 +329,7 @@ dopm(Blk *b, Ins *i, RMap *m)
 			radd(m, r, r);
 	}
 	pmgen();
-#ifdef TEST_PMOV
-	return 0;
-#endif
-	n = b->nins - (i1 - i) + (curi - insb);
-	i0 = alloc(n * sizeof(Ins));
-	ip = icpy(ip = i0, b->ins, i - b->ins);
-	ip = icpy(ir = ip, insb, curi - insb);
-	ip = icpy(ip, i1, &b->ins[b->nins] - i1);
-	b->nins = n;
-	b->ins = i0;
-	return ir;
+	return i;
 }
 
 static int
@@ -382,6 +368,7 @@ doblk(Blk *b, RMap *cur)
 		radd(cur, r, r);
 	if (rtype(b->jmp.arg) == RTmp)
 		b->jmp.arg = ralloc(cur, b->jmp.arg.val);
+	curi = &insb[NIns];
 	for (i=&b->ins[b->nins]; i!=b->ins;) {
 		switch ((--i)->op) {
 		case Ocall:
@@ -407,7 +394,6 @@ doblk(Blk *b, RMap *cur)
 					r = rfree(cur, r);
 				if (r == -1) {
 					assert(!isreg(i->to));
-					*i = (Ins){.op = Onop};
 					continue;
 				}
 				i->to = TMP(r);
@@ -430,7 +416,10 @@ doblk(Blk *b, RMap *cur)
 			}
 		for (r=0; r<nr; r++)
 			*ra[r] = ralloc(cur, ra[r]->val);
+		emiti(*i);
 	}
+	b->nins = &insb[NIns] - curi;
+	idup(&b->ins, curi, b->nins);
 }
 
 /* register allocation
@@ -577,8 +566,9 @@ rega(Fn *fn)
 				dst = rref(&beg[s->id], t);
 				pmadd(src, dst, tmp[t].cls);
 			}
+			curi = &insb[NIns];
 			pmgen();
-			if (curi == insb)
+			if (curi == &insb[NIns])
 				continue;
 			b1 = blknew();
 			b1->loop = (b->loop+s->loop) / 2;
@@ -586,8 +576,8 @@ rega(Fn *fn)
 			blist = b1;
 			fn->nblk++;
 			sprintf(b1->name, "%s_%s", b->name, s->name);
-			b1->nins = curi - insb;
-			idup(&b1->ins, insb, b1->nins);
+			b1->nins = &insb[NIns] - curi;
+			idup(&b1->ins, curi, b1->nins);
 			b1->jmp.type = Jjmp;
 			b1->s1 = s;
 			**ps = b1;
