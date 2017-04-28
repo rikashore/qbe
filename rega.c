@@ -10,6 +10,7 @@ typedef struct RMap RMap;
 struct RMap {
 	int t[Tmp0];
 	int r[Tmp0];
+	int w[Tmp0]; /* wait list, for unmatched hints */
 	BSet b[1];
 	int n;
 };
@@ -45,6 +46,7 @@ rcopy(RMap *ma, RMap *mb)
 {
 	memcpy(ma->t, mb->t, sizeof ma->t);
 	memcpy(ma->r, mb->r, sizeof ma->r);
+	memcpy(ma->w, mb->w, sizeof ma->w);
 	bscopy(ma->b, mb->b);
 	ma->n = mb->n;
 }
@@ -96,7 +98,7 @@ static Ref
 ralloc(RMap *m, int t)
 {
 	bits regs;
-	int r, r0, r1;
+	int h, r, r0, r1;
 
 	if (t < Tmp0) {
 		assert(bshas(m->b, t));
@@ -129,6 +131,11 @@ ralloc(RMap *m, int t)
 Found:
 	radd(m, t, r);
 	sethint(t, r);
+	h = *hint(t);
+	if (h != -1 && h != r) {
+		assert(h < Tmp0);
+		m->w[h] = t;
+	}
 	return TMP(r);
 }
 
@@ -150,6 +157,26 @@ rfree(RMap *m, int t)
 	memmove(&m->r[i], &m->r[i+1], (m->n-i) * sizeof m->r[0]);
 	assert(t >= Tmp0 || t == r);
 	return r;
+}
+
+static void
+reager(RMap *m, int r)
+{
+	uint n;
+	int h, rh;
+
+	/* eagerly change the register of a
+	 * hinted temporary
+	 */
+	assert(r > RXX && r < Tmp0 && !bshas(m->b, r));
+	while ((h = m->w[r]) != 0) {
+		rh = rfree(m, h);
+		assert(rh != -1);
+		ralloc(m, h);
+		assert(bshas(m->b, r));
+		m->w[r] = 0;
+		r = rh;
+	}
 }
 
 static void
@@ -261,8 +288,9 @@ move(int r, Ref to, RMap *m)
 	int n, t, r1;
 
 	r1 = req(to, R) ? -1 : rfree(m, to.val);
-	if (bshas(m->b, r) && r1 != r) {
+	if (bshas(m->b, r)) {
 		/* r is used and not by to */
+		assert(r1 != r);
 		for (n=0; m->r[n] != r; n++)
 			assert(n+1 < m->n);
 		t = m->t[n];
@@ -289,7 +317,8 @@ dopm(Blk *b, Ins *i, RMap *m)
 	Ins *i0, *i1, *ip, *ir;
 	bits def;
 
-	m0 = *m;
+	m0 = *m; /* okay since we don't use m0.b */
+	m0.b[0] = (BSet){0};
 	i1 = ++i;
 	do {
 		i--;
@@ -398,6 +427,7 @@ doblk(Blk *b, RMap *cur)
 					continue;
 				}
 				i->to = TMP(r);
+				reager(cur, r);
 			}
 			break;
 		}
@@ -461,6 +491,7 @@ rega(Fn *fn)
 		b = fn->rpo[n];
 		cur.n = 0;
 		bszero(cur.b);
+		memset(cur.w, 0, sizeof cur.w);
 		for (x=0; x<2; x++)
 			for (t=Tmp0; bsiter(b->out, &t); t++)
 				if (x || (r=*hint(t)) != -1)
@@ -472,6 +503,7 @@ rega(Fn *fn)
 		for (p=b->phi; p; p=p->link)
 			if (rtype(p->to) == RTmp) {
 				bsclr(b->in, p->to.val);
+				if (0) {
 				/* heuristic 0:
 				 * if the phi destination has an
 				 * argument from a frequent block
@@ -491,8 +523,9 @@ rega(Fn *fn)
 						x = j;
 				if (rl[x] >= b->loop)
 					*hint(p->to.val) = x;
+				}
 			}
-		if (b->npred > 1) {
+		if (0 && b->npred > 1) {
 			/* heuristic 1:
 			 * attempt to satisfy hints
 			 * when it's simple and we have

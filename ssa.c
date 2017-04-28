@@ -40,7 +40,7 @@ filluse(Fn *fn)
 	Blk *b;
 	Phi *p;
 	Ins *i;
-	int m, t, w;
+	int m, t, tp, w;
 	uint a;
 	Tmp *tmp;
 
@@ -58,16 +58,17 @@ filluse(Fn *fn)
 	for (b=fn->start; b; b=b->link) {
 		for (p=b->phi; p; p=p->link) {
 			assert(rtype(p->to) == RTmp);
-			t = p->to.val;
-			tmp[t].ndef++;
-			tmp[t].cls = p->cls;
-			tmp[t].phi = p->to.val;
+			tp = p->to.val;
+			tmp[tp].ndef++;
+			tmp[tp].cls = p->cls;
+			tp = phicls(tp, fn->tmp);
 			for (a=0; a<p->narg; a++)
 				if (rtype(p->arg[a]) == RTmp) {
 					t = p->arg[a].val;
 					adduse(&tmp[t], UPhi, b, p);
-					if (!tmp[t].phi)
-						tmp[t].phi = p->to.val;
+					t = phicls(t, fn->tmp);
+					if (t != tp)
+						tmp[t].phi = tp;
 				}
 		}
 		for (i=b->ins; i-b->ins < b->nins; i++) {
