@@ -217,34 +217,33 @@ pmrec(enum PMStat *status, int i, int *k)
 	/* note, this routine might emit
 	 * too many large instructions
 	 */
-
-	if (req(pm[i].src, pm[i].dst))
+	if (req(pm[i].src, pm[i].dst)) {
+		status[i] = Moved;
 		return -1;
-	status[i] = Moving;
+	}
 	assert((Kw|1) == Kl && (Ks|1) == Kd);
 	*k |= KWIDE(pm[i].cls);
 	for (j=0; j<npm; j++)
 		if (req(pm[j].dst, pm[i].src))
 			break;
-	if (j == npm)
-		goto Moved;
-	switch (status[j]) {
+	switch (j == npm ? Moved : status[j]) {
+	case Moving:
+		c = j; /* start of cycle */
+		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
+		break;
 	case ToMove:
+		status[i] = Moving;
 		c = pmrec(status, j, k);
 		if (c == i) {
-			c = -1;
+			c = -1; /* end of cycle */
 			break;
 		}
-		if (c == -1)
-			goto Moved;
-		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
-		break;
-	case Moving:
-		c = j;
-		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
-		break;
+		if (c != -1) {
+			emit(Oswap, *k, R, pm[i].src, pm[i].dst);
+			break;
+		}
+		/* fallthrough */
 	case Moved:
-	Moved:
 		c = -1;
 		emit(Ocopy, pm[i].cls, pm[i].dst, pm[i].src, R);
 		break;
