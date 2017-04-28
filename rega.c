@@ -212,25 +212,17 @@ enum PMStat { ToMove, Moving, Moved };
 static int
 pmrec(enum PMStat *status, int i, int *k)
 {
-	int j, k1, c;
+	int j, c;
 
 	/* note, this routine might emit
-	 * too many large instructions:
-	 *
-	 *                  , x -- x
-	 *      x -- x -- x        |
-	 *                  ` x -- x
-	 *
-	 * if only the first move is wide
-	 * the whole cycle will be wide,
-	 * this is safe but not necessary
+	 * too many large instructions
 	 */
 
 	if (req(pm[i].src, pm[i].dst))
 		return -1;
 	status[i] = Moving;
-	assert(KBASE(*k) == KBASE(pm[i].cls));
-	*k |= KWIDE(pm[i].cls); /* see above */
+	assert((Kw|1) == Kl && (Ks|1) == Kd);
+	*k |= KWIDE(pm[i].cls);
 	for (j=0; j<npm; j++)
 		if (req(pm[j].dst, pm[i].src))
 			break;
@@ -238,15 +230,13 @@ pmrec(enum PMStat *status, int i, int *k)
 		goto Moved;
 	switch (status[j]) {
 	case ToMove:
-		k1 = *k;
-		c = pmrec(status, j, &k1);
+		c = pmrec(status, j, k);
 		if (c == i) {
 			c = -1;
 			break;
 		}
 		if (c == -1)
 			goto Moved;
-		*k = k1;
 		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
 		break;
 	case Moving:
