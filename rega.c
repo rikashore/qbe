@@ -21,8 +21,8 @@ static Mem *mem;       /* function mem references */
 static struct {
 	Ref src, dst;
 	int cls;
-} *pm;                 /* parallel move constructed */
-static int cpm, npm;   /* capacity and size of pm */
+} pm[Tmp0];            /* parallel move constructed */
+static int npm;        /* size of pm */
 
 static int *
 hint(int t)
@@ -195,12 +195,8 @@ mdump(RMap *m)
 static void
 pmadd(Ref src, Ref dst, int k)
 {
-	if (npm == cpm) {
-		cpm = cpm * 2 + 16;
-		pm = realloc(pm, cpm * sizeof pm[0]);
-		if (!pm)
-			die("pmadd, out of memory");
-	}
+	if (npm == Tmp0)
+		die("cannot have more moves than registers");
 	pm[npm].src = src;
 	pm[npm].dst = dst;
 	pm[npm].cls = k;
