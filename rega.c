@@ -132,10 +132,8 @@ Found:
 	radd(m, t, r);
 	sethint(t, r);
 	h = *hint(t);
-	if (h != -1 && h != r) {
-		assert(h < Tmp0);
+	if (h != -1 && h != r)
 		m->w[h] = t;
-	}
 	return TMP(r);
 }
 
@@ -162,22 +160,23 @@ rfree(RMap *m, int t)
 static void
 reager(RMap *m, int r)
 {
-	int h, rh;
+	int t, rt;
 
-	/* eagerly change the register of a
-	 * hinted temporary
+	/* try to change the register of a
+	 * hinted temporary when r becomes
+	 * available
 	 */
-	return;
-	assert(r > RXX && r < Tmp0 && !bshas(m->b, r));
-	h = m->w[r];
-	if (h != 0) {
-		rh = rfree(m, h);
-		assert(rh != -1);
-		ralloc(m, h);
+	assert(!bshas(m->b, r));
+	while ((t = m->w[r]) != 0) {
+		if (*hint(t) != r
+		|| (rt = rfree(m, t)) == -1)
+			break;
+		//printf("XXXX EAGER COPY\n");
+		ralloc(m, t);
 		assert(bshas(m->b, r));
+		emit(Ocopy, tmp[t].cls, TMP(rt), TMP(r), R);
 		m->w[r] = 0;
-		emit(Ocopy, tmp[h].cls, TMP(rh), TMP(r), R);
-		reager(m, rh);
+		r = rt; /* rt is now available */
 	}
 }
 
@@ -362,7 +361,7 @@ doblk(Blk *b, RMap *cur)
 {
 	int x, r, nr;
 	bits rs;
-	Ins *i;
+	Ins *i, *i1;
 	Mem *m;
 	Ref *ra[4];
 
@@ -371,8 +370,10 @@ doblk(Blk *b, RMap *cur)
 	if (rtype(b->jmp.arg) == RTmp)
 		b->jmp.arg = ralloc(cur, b->jmp.arg.val);
 	curi = &insb[NIns];
-	for (i=&b->ins[b->nins]; i!=b->ins;) {
-		switch ((--i)->op) {
+	for (i1=&b->ins[b->nins]; i1!=b->ins;) {
+		emiti(*--i1);
+		i = curi;
+		switch (i->op) {
 		case Ocall:
 			rs = T.argregs(i->arg[1], 0) | T.rglob;
 			for (r=0; T.rsave[r]>=0; r++)
@@ -380,8 +381,9 @@ doblk(Blk *b, RMap *cur)
 					rfree(cur, T.rsave[r]);
 			break;
 		case Ocopy:
-			if (isreg(i->arg[0])) {
-				i = dopm(b, i, cur);
+			if (regcpy(i)) {
+				curi++;
+				i1 = dopm(b, i1, cur);
 				continue;
 			}
 			if (isreg(i->to))
@@ -392,14 +394,16 @@ doblk(Blk *b, RMap *cur)
 			if (!req(i->to, R)) {
 				assert(rtype(i->to) == RTmp);
 				r = i->to.val;
-				if (r >= Tmp0 || !(BIT(r) & T.rglob))
-					r = rfree(cur, r);
+				if (r < Tmp0 && (BIT(r) & T.rglob))
+					break;
+				r = rfree(cur, r);
 				if (r == -1) {
 					assert(!isreg(i->to));
+					curi++;
 					continue;
 				}
-				i->to = TMP(r);
 				reager(cur, r);
+				i->to = TMP(r);
 			}
 			break;
 		}
@@ -418,7 +422,6 @@ doblk(Blk *b, RMap *cur)
 			}
 		for (r=0; r<nr; r++)
 			*ra[r] = ralloc(cur, ra[r]->val);
-		emiti(*i);
 	}
 	b->nins = &insb[NIns] - curi;
 	idup(&b->ins, curi, b->nins);
