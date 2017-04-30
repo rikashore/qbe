@@ -420,6 +420,16 @@ doblk(Blk *b, RMap *cur)
 	idup(&b->ins, curi, b->nins);
 }
 
+static int
+bcmp(const void *a, const void *b)
+{
+	Blk *ba, *bb;
+
+	ba = *(Blk**)a;
+	bb = *(Blk**)b;
+	return ba->loop < bb->loop ? -1 : ba->loop > bb->loop;
+}
+
 /* register allocation
  * depends on rpo, phi, cost, (and obviously spill)
  */
@@ -427,7 +437,7 @@ void
 rega(Fn *fn)
 {
 	int j, t, r, r1, x, rl[Tmp0];
-	Blk *b, *b1, *s, ***ps, *blist;
+	Blk *b, *b1, *s, ***ps, *blist, **blk, **bp;
 	RMap *end, *beg, cur, old;
 	Ins *i;
 	Phi *p;
@@ -438,6 +448,7 @@ rega(Fn *fn)
 	regu = 0;
 	tmp = fn->tmp;
 	mem = fn->mem;
+	blk = alloc(fn->nblk * sizeof blk[0]);
 	end = alloc(fn->nblk * sizeof end[0]);
 	beg = alloc(fn->nblk * sizeof beg[0]);
 	for (n=0; n<fn->nblk; n++) {
@@ -454,12 +465,17 @@ rega(Fn *fn)
 			break;
 		else {
 			assert(rtype(i->to) == RTmp);
-			sethint(i->to.val, i->arg[0].val);
+			// sethint(i->to.val, i->arg[0].val);
 		}
+	for (bp=blk, b=fn->start; b; b=b->link)
+		*bp++ = b;
+	qsort(blk, fn->nblk, sizeof blk[0], bcmp);
 
 	/* 2. assign registers following post-order */
-	for (n=fn->nblk-1; n!=-1u; n--) {
-		b = fn->rpo[n];
+	for (bp=blk; bp<&blk[fn->nblk]; bp++) {
+		b = *bp;
+		//fprintf(stderr, "Allocating %s\n", b->name);
+		n = b->id;
 		cur.n = 0;
 		bszero(cur.b);
 		memset(cur.w, 0, sizeof cur.w);
