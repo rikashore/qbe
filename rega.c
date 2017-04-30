@@ -404,7 +404,7 @@ doblk(Blk *b, RMap *cur)
 		 * hinted temporary if rf becomes
 		 * available
 		 */
-		if (rf != -1 && bshas(cur->b, rf))
+		if (0 && rf != -1 && bshas(cur->b, rf))
 			while ((t = cur->w[rf]) != 0) {
 				if (*hint(t) != rf
 				|| (rt = rfree(cur, t)) == -1)
@@ -427,7 +427,11 @@ bcmp(const void *a, const void *b)
 
 	ba = *(Blk**)a;
 	bb = *(Blk**)b;
-	return ba->loop < bb->loop ? -1 : ba->loop > bb->loop;
+	// uncommenting below + eager move code breaks tests
+	// return ba->loop < bb->loop ? -1 : ba->loop > bb->loop;
+	if (ba->loop == bb->loop)
+		return ba->id > bb->id ? -1 : ba->id < bb->id;
+	return ba->loop > bb->loop ? -1 : +1;
 }
 
 /* register allocation
@@ -460,16 +464,17 @@ rega(Fn *fn)
 
 	for (t=0; t<fn->ntmp; t++)
 		*hint(t) = t < Tmp0 ? t : -1;
-	for (b=fn->start, i=b->ins; i-b->ins < b->nins; i++)
-		if (i->op != Ocopy || !isreg(i->arg[0]))
-			break;
-		else {
-			assert(rtype(i->to) == RTmp);
-			// sethint(i->to.val, i->arg[0].val);
-		}
 	for (bp=blk, b=fn->start; b; b=b->link)
 		*bp++ = b;
 	qsort(blk, fn->nblk, sizeof blk[0], bcmp);
+	while (bp!=blk)
+		for (b=*--bp, i=b->ins; i-b->ins < b->nins; i++)
+			if (i->op == Ocopy) {
+				if (isreg(i->arg[0]) && rtype(i->to) == RTmp)
+					*hint(i->to.val) = i->arg[0].val;
+				if (isreg(i->to) && rtype(i->arg[0]) == RTmp)
+					*hint(i->arg[0].val) = i->to.val;
+			}
 
 	/* 2. assign registers following post-order */
 	for (bp=blk; bp<&blk[fn->nblk]; bp++) {
@@ -490,7 +495,7 @@ rega(Fn *fn)
 		for (p=b->phi; p; p=p->link)
 			if (rtype(p->to) == RTmp) {
 				bsclr(b->in, p->to.val);
-				if (0) {
+				if (1) {
 				/* heuristic 0:
 				 * if the phi destination has an
 				 * argument from a frequent block
