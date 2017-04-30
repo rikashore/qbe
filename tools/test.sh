@@ -103,6 +103,8 @@ once() {
 		return 1
 	fi
 
+	wc -l $asm | awk "{ print \$1, \"$(basename $t)\"  }" >> loc.txt
+
 	extract driver $t > $drv
 	extract output $t > $out
 
