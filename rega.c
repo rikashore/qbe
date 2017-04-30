@@ -158,29 +158,6 @@ rfree(RMap *m, int t)
 }
 
 static void
-reager(RMap *m, int r)
-{
-	int t, rt;
-
-	/* try to change the register of a
-	 * hinted temporary when r becomes
-	 * available
-	 */
-	assert(!bshas(m->b, r));
-	while ((t = m->w[r]) != 0) {
-		if (*hint(t) != r
-		|| (rt = rfree(m, t)) == -1)
-			break;
-		//printf("XXXX EAGER COPY\n");
-		ralloc(m, t);
-		assert(bshas(m->b, r));
-		emit(Ocopy, tmp[t].cls, TMP(rt), TMP(r), R);
-		m->w[r] = 0;
-		r = rt; /* rt is now available */
-	}
-}
-
-static void
 mdump(RMap *m)
 {
 	int i;
@@ -359,7 +336,7 @@ insert(Ref *r, Ref **rs, int p)
 static void
 doblk(Blk *b, RMap *cur)
 {
-	int x, r, nr;
+	int t, x, r, rf, rt, nr;
 	bits rs;
 	Ins *i, *i1;
 	Mem *m;
@@ -373,6 +350,7 @@ doblk(Blk *b, RMap *cur)
 	for (i1=&b->ins[b->nins]; i1!=b->ins;) {
 		emiti(*--i1);
 		i = curi;
+		rf = -1;
 		switch (i->op) {
 		case Ocall:
 			rs = T.argregs(i->arg[1], 0) | T.rglob;
@@ -396,14 +374,13 @@ doblk(Blk *b, RMap *cur)
 				r = i->to.val;
 				if (r < Tmp0 && (BIT(r) & T.rglob))
 					break;
-				r = rfree(cur, r);
-				if (r == -1) {
+				rf = rfree(cur, r);
+				if (rf == -1) {
 					assert(!isreg(i->to));
 					curi++;
 					continue;
 				}
-				reager(cur, r);
-				i->to = TMP(r);
+				i->to = TMP(rf);
 			}
 			break;
 		}
@@ -422,6 +399,22 @@ doblk(Blk *b, RMap *cur)
 			}
 		for (r=0; r<nr; r++)
 			*ra[r] = ralloc(cur, ra[r]->val);
+
+		/* try to change the register of a
+		 * hinted temporary if rf becomes
+		 * available
+		 */
+		if (rf != -1 && bshas(cur->b, rf))
+			while ((t = cur->w[rf]) != 0) {
+				if (*hint(t) != rf
+				|| (rt = rfree(cur, t)) == -1)
+					break;
+				ralloc(cur, t);
+				assert(bshas(cur->b, rf));
+				emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
+				cur->w[rf] = 0;
+				rf = rt; /* rt is now available */
+			}
 	}
 	b->nins = &insb[NIns] - curi;
 	idup(&b->ins, curi, b->nins);
