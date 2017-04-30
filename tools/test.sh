@@ -151,6 +151,8 @@ then
 	exit 1
 fi
 
+rm -f loc.txt
+
 case "$1" in
 "all")
 	fail=0
