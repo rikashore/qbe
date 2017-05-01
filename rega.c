@@ -447,7 +447,7 @@ bcmp(const void *a, const void *b)
 void
 rega(Fn *fn)
 {
-	int j, t, r, r1, x, rl[Tmp0];
+	int j, t, r, r1, x, rl[Tmp0+1];
 	Blk *b, *b1, *s, ***ps, *blist, **blk, **bp;
 	RMap *end, *beg, cur, old;
 	Ins *i;
@@ -487,16 +487,36 @@ rega(Fn *fn)
 	/* 2. assign registers following post-order */
 	for (bp=blk; bp<&blk[fn->nblk]; bp++) {
 		b = *bp;
-		//fprintf(stderr, "Allocating %s\n", b->name);
+		fprintf(stderr, "Allocating %s (id: %d, loop:%d)\n", b->name, b->id, b->loop);
 		n = b->id;
 		cur.n = 0;
 		bszero(cur.b);
 		memset(cur.w, 0, sizeof cur.w);
+		for (x=0, t=Tmp0; bsiter(b->out, &t); t++) {
+			j = x++;
+			do {
+				rl[j+1] = rl[j];
+				rl[j--] = t;
+			} while (
+				j >= 0
+				&& ((*hint(rl[j]) == -1 && *hint(t) != -1)
+				|| tmp[rl[j]].cost < tmp[t].cost)
+			);
+		}
+		for (j=0; j<x; j++) {
+			t = rl[j];
+			fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
+			ralloc(&cur, rl[j]);
+		}
+	#if 0
 		for (x=0; x<2; x++)
 			for (t=Tmp0; bsiter(b->out, &t); t++)
 				if (x || (r=*hint(t)) != -1)
-				if (x || !bshas(cur.b, r))
+				if (x || !bshas(cur.b, r)) {
+					//fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
 					ralloc(&cur, t);
+				}
+	#endif
 		rcopy(&end[n], &cur);
 		doblk(b, &cur);
 		bscopy(b->in, cur.b);
