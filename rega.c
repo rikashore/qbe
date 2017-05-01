@@ -404,6 +404,7 @@ doblk(Blk *b, RMap *cur)
 		 * hinted temporary if rf becomes
 		 * available
 		 */
+		x = 1;
 		if (1 && rf != -1)
 			while ((t = cur->w[rf]) != 0) {
 				if (bshas(cur->b, rf)
@@ -414,10 +415,11 @@ doblk(Blk *b, RMap *cur)
 				assert(bshas(cur->b, rf));
 				emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
 				cur->w[rf] = 0;
-				for (r=0; r<nr; r++)
+				for (r=0; 0 && r<nr; r++)
 					if (req(*ra[r], TMP(rt)))
 						*ra[r] = TMP(rf);
-				break;
+				// break;
+				fprintf(stderr, "Eager move %d!\n", x++);
 				rf = rt; /* rt is now available */
 			}
 	}
@@ -433,7 +435,7 @@ bcmp(const void *a, const void *b)
 	ba = *(Blk**)a;
 	bb = *(Blk**)b;
 	// uncommenting below + eager move code breaks tests
-	// return ba->loop < bb->loop ? -1 : ba->loop > bb->loop;
+	return ba->loop < bb->loop ? -1 : ba->loop > bb->loop;
 	if (0 || ba->loop == bb->loop)
 		return ba->id > bb->id ? -1 : ba->id < bb->id;
 	return ba->loop > bb->loop ? -1 : +1;
@@ -472,6 +474,7 @@ rega(Fn *fn)
 	for (bp=blk, b=fn->start; b; b=b->link)
 		*bp++ = b;
 	qsort(blk, fn->nblk, sizeof blk[0], bcmp);
+	if (0) {
 	for (b=fn->start, i=b->ins; i-b->ins < b->nins; i++)
 		if (i->op != Ocopy || !isreg(i->arg[0]))
 			break;
@@ -479,6 +482,7 @@ rega(Fn *fn)
 			assert(rtype(i->to) == RTmp);
 			sethint(i->to.val, i->arg[0].val);
 		}
+	}
 
 	/* 2. assign registers following post-order */
 	for (bp=blk; bp<&blk[fn->nblk]; bp++) {
