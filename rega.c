@@ -404,15 +404,20 @@ doblk(Blk *b, RMap *cur)
 		 * hinted temporary if rf becomes
 		 * available
 		 */
-		if (0 && rf != -1 && bshas(cur->b, rf))
+		if (1 && rf != -1)
 			while ((t = cur->w[rf]) != 0) {
-				if (*hint(t) != rf
+				if (bshas(cur->b, rf)
+				|| *hint(t) != rf
 				|| (rt = rfree(cur, t)) == -1)
 					break;
 				ralloc(cur, t);
 				assert(bshas(cur->b, rf));
 				emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
 				cur->w[rf] = 0;
+				for (r=0; r<nr; r++)
+					if (req(*ra[r], TMP(rt)))
+						*ra[r] = TMP(rf);
+				break;
 				rf = rt; /* rt is now available */
 			}
 	}
