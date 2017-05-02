@@ -23,6 +23,7 @@ static struct {
 	int cls;
 } pm[Tmp0];            /* parallel move constructed */
 static int npm;        /* size of pm */
+static int loop;       /* current loop level */
 
 static int *
 hint(int t)
@@ -33,12 +34,14 @@ hint(int t)
 static void
 sethint(int t, int r)
 {
-	bits m;
+	Tmp *p;
 
-	m = tmp[phicls(t, tmp)].hint.m;
-	if (*hint(t) == -1)
-	if (!(BIT(r) & m))
-		*hint(t) = r;
+	p = &tmp[phicls(t, tmp)];
+	if (p->hint.r == -1 || p->hint.w > loop) {
+		fprintf(stderr,"Setting hint of %s to %d.\n", tmp[t].name, r);
+		p->hint.r = r;
+		p->hint.w = loop;
+	}
 }
 
 static void
@@ -469,8 +472,11 @@ rega(Fn *fn)
 	bsinit(cur.b, fn->ntmp);
 	bsinit(old.b, fn->ntmp);
 
-	for (t=0; t<fn->ntmp; t++)
-		*hint(t) = t < Tmp0 ? t : -1;
+	loop = INT_MAX;
+	for (t=0; t<fn->ntmp; t++) {
+		tmp[t].hint.r = t < Tmp0 ? t : -1;
+		tmp[t].hint.w = loop;
+	}
 	for (bp=blk, b=fn->start; b; b=b->link)
 		*bp++ = b;
 	qsort(blk, fn->nblk, sizeof blk[0], bcmp);
@@ -489,6 +495,7 @@ rega(Fn *fn)
 		b = *bp;
 		fprintf(stderr, "Allocating %s (id: %d, loop:%d)\n", b->name, b->id, b->loop);
 		n = b->id;
+		loop = b->loop;
 		cur.n = 0;
 		bszero(cur.b);
 		memset(cur.w, 0, sizeof cur.w);
@@ -500,13 +507,15 @@ rega(Fn *fn)
 			} while (
 				j >= 0
 				&& ((*hint(rl[j]) == -1 && *hint(t) != -1)
-				|| tmp[rl[j]].cost < tmp[t].cost)
+				|| (*hint(rl[j]) * *hint(t) >= 0
+					&& tmp[rl[j]].cost < tmp[t].cost))
 			);
 		}
 		for (j=0; j<x; j++) {
 			t = rl[j];
 			fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
-			ralloc(&cur, rl[j]);
+			dst = ralloc(&cur, rl[j]);
+			fprintf(stderr, "==== In %d\n", dst.val);
 		}
 	#if 0
 		for (x=0; x<2; x++)
