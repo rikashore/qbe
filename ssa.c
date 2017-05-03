@@ -32,33 +32,16 @@ adduse(Tmp *tmp, int ty, Blk *b, ...)
 }
 
 static Hint **
-unbox(Hint *h)
-{
-	assert((uintptr_t)h & 1);
-	return (Hint **)((uintptr_t)h & ~1);
-}
-
-static Hint *
-box(Hint **ph)
-{
-	return (Hint *)((uintptr_t)ph | 1);
-}
-
-static Hint **
 phihint(Hint **p)
 {
-	Hint **p0;
+	Hint **ph;
 
-	/* when the lsb of a Tmp.phih is set to
-	 * one, it contains a pointer to the
-	 * parent phih
-	 */
 	if (!*p)
 		return p;
-	p0 = phihint(unbox(*p));
-	assert(!*p0);
-	*p = box(p0);
-	return p0;
+	ph = phihint((Hint **)*p);
+	*p = (Hint *)ph;
+	assert(!*ph);
+	return ph;
 }
 
 /* fill usage, width, phi, and class information
@@ -106,7 +89,7 @@ filluse(Fn *fn)
 					if (t != tp) {
 						assert(h != ph);
 						tmp[t].phi = tp;
-						*h = box(ph);
+						*h = (Hint *)ph;
 					} else
 						assert(h == ph);
 				}
