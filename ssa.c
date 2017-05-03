@@ -31,6 +31,36 @@ adduse(Tmp *tmp, int ty, Blk *b, ...)
 	va_end(ap);
 }
 
+static Hint **
+unbox(Hint *h)
+{
+	assert((uintptr_t)h & 1);
+	return (Hint **)((uintptr_t)h & ~1);
+}
+
+static Hint *
+box(Hint **ph)
+{
+	return (Hint *)((uintptr_t)ph | 1);
+}
+
+static Hint **
+phihint(Hint **p)
+{
+	Hint **p0;
+
+	/* when the lsb of a Tmp.phih is set to
+	 * one, it contains a pointer to the
+	 * parent phih
+	 */
+	if (!*p)
+		return p;
+	p0 = phihint(unbox(*p));
+	assert(!*p0);
+	*p = box(p0);
+	return p0;
+}
+
 /* fill usage, width, phi, and class information
  * must not change .visit fields
  */
@@ -43,14 +73,16 @@ filluse(Fn *fn)
 	int m, t, tp, w;
 	uint a;
 	Tmp *tmp;
+	Hint **ph, **h;
 
 	/* todo, is this the correct file? */
 	tmp = fn->tmp;
 	for (t=Tmp0; t<fn->ntmp; t++) {
 		tmp[t].ndef = 0;
 		tmp[t].nuse = 0;
-		tmp[t].phi = 0;
 		tmp[t].cls = 0;
+		tmp[t].phi = 0;
+		tmp[t].phih = 0;
 		tmp[t].width = WFull;
 		if (tmp[t].use == 0)
 			tmp[t].use = vnew(0, sizeof(Use), Pfn);
@@ -61,14 +93,22 @@ filluse(Fn *fn)
 			tp = p->to.val;
 			tmp[tp].ndef++;
 			tmp[tp].cls = p->cls;
+			ph = phihint(&tmp[tp].phih);
 			tp = phicls(tp, fn->tmp);
+			assert(ph == &tmp[tp].phih);
 			for (a=0; a<p->narg; a++)
 				if (rtype(p->arg[a]) == RTmp) {
 					t = p->arg[a].val;
 					adduse(&tmp[t], UPhi, b, p);
+					h = phihint(&tmp[t].phih);
 					t = phicls(t, fn->tmp);
-					if (t != tp)
+					assert(h == &tmp[t].phih);
+					if (t != tp) {
+						assert(h != ph);
 						tmp[t].phi = tp;
+						*h = box(ph);
+					} else
+						assert(h == ph);
 				}
 		}
 		for (i=b->ins; i-b->ins < b->nins; i++) {

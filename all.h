@@ -294,7 +294,7 @@ struct Tmp {
 	uint cost;
 	short slot; /* -1 for unset */
 	short cls;
-	Hint *hphi; /* hint for the phi class */
+	Hint *phih; /* hint for the phi class */
 	Hint hint;
 	int phi;
 	Alias alias;
