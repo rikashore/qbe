@@ -109,7 +109,9 @@ ralloc(RMap *m, int t)
 		assert(r != -1);
 		return TMP(r);
 	}
-	r = *hint(t);
+	r = tmp[t].visit;
+	if (r == -1 || bshas(m->b, r))
+		r = *hint(t);
 	if (r == -1 || bshas(m->b, r)) {
 		regs = tmp[phicls(t, tmp)].hint.m;
 		regs |= m->b->t[0];
@@ -131,6 +133,7 @@ ralloc(RMap *m, int t)
 Found:
 	radd(m, t, r);
 	sethint(t, r);
+	tmp[t].visit = r;
 	h = *hint(t);
 	if (h != -1 && h != r)
 		m->w[h] = t;
@@ -411,6 +414,7 @@ doblk(Blk *b, RMap *cur)
 				|| *hint(t) != rf
 				|| (rt = rfree(cur, t)) == -1)
 					break;
+				tmp[t].visit = -1;
 				ralloc(cur, t);
 				assert(bshas(cur->b, rf));
 				emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
@@ -439,6 +443,16 @@ bcmp(const void *a, const void *b)
 	if (0 || ba->loop == bb->loop)
 		return ba->id > bb->id ? -1 : ba->id < bb->id;
 	return ba->loop > bb->loop ? -1 : +1;
+}
+
+static int
+tcmp(int t1, int t2)
+{
+	if ((tmp[t1].visit ^ tmp[t2].visit) < 0)
+		return tmp[t1].visit != -1 ? +1 : -1;
+	if ((*hint(t1) ^ *hint(t2)) < 0)
+		return *hint(t1) != -1 ? +1 : -1;
+	return tmp[t1].cost - tmp[t2].cost;
 }
 
 /* register allocation
@@ -473,6 +487,7 @@ rega(Fn *fn)
 	for (t=0; t<fn->ntmp; t++) {
 		tmp[t].hint.r = t < Tmp0 ? t : -1;
 		tmp[t].hint.w = loop;
+		tmp[t].visit = -1;
 	}
 	for (bp=blk, b=fn->start; b; b=b->link)
 		*bp++ = b;
@@ -501,12 +516,7 @@ rega(Fn *fn)
 			do {
 				rl[j+1] = rl[j];
 				rl[j--] = t;
-			} while (
-				j >= 0
-				&& ((*hint(rl[j]) == -1 && *hint(t) != -1)
-				|| (*hint(rl[j]) * *hint(t) >= 0
-					&& tmp[rl[j]].cost < tmp[t].cost))
-			);
+			} while (j >= 0 && tcmp(t, rl[j]) > 0);
 		}
 		for (j=0; j<x; j++) {
 			t = rl[j];

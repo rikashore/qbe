@@ -21,7 +21,6 @@ typedef struct Phi Phi;
 typedef struct Blk Blk;
 typedef struct Use Use;
 typedef struct Alias Alias;
-typedef struct Hint Hint;
 typedef struct Tmp Tmp;
 typedef struct Con Con;
 typedef struct Addr Mem;
@@ -281,12 +280,6 @@ struct Alias {
 	Alias *slot;
 };
 
-struct Hint {
-	int r;  /* register or -1 */
-	int w;  /* weight */
-	bits m; /* avoid these registers */
-};
-
 struct Tmp {
 	char name[NString];
 	Use *use;
@@ -294,8 +287,11 @@ struct Tmp {
 	uint cost;
 	short slot; /* -1 for unset */
 	short cls;
-	Hint *phih; /* hint for the phi class */
-	Hint hint;
+	struct {
+		int r;  /* register or -1 */
+		int w;  /* weight */
+		bits m; /* avoid these registers */
+	} hint;
 	int phi;
 	Alias alias;
 	enum {

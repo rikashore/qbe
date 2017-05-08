@@ -31,19 +31,6 @@ adduse(Tmp *tmp, int ty, Blk *b, ...)
 	va_end(ap);
 }
 
-static Hint **
-phihint(Hint **p)
-{
-	Hint **ph;
-
-	if (!*p)
-		return p;
-	ph = phihint((Hint **)*p);
-	*p = (Hint *)ph;
-	assert(!*ph);
-	return ph;
-}
-
 /* fill usage, width, phi, and class information
  * must not change .visit fields
  */
@@ -56,7 +43,6 @@ filluse(Fn *fn)
 	int m, t, tp, w;
 	uint a;
 	Tmp *tmp;
-	Hint **ph, **h;
 
 	/* todo, is this the correct file? */
 	tmp = fn->tmp;
@@ -65,7 +51,6 @@ filluse(Fn *fn)
 		tmp[t].nuse = 0;
 		tmp[t].cls = 0;
 		tmp[t].phi = 0;
-		tmp[t].phih = 0;
 		tmp[t].width = WFull;
 		if (tmp[t].use == 0)
 			tmp[t].use = vnew(0, sizeof(Use), Pfn);
@@ -76,22 +61,14 @@ filluse(Fn *fn)
 			tp = p->to.val;
 			tmp[tp].ndef++;
 			tmp[tp].cls = p->cls;
-			ph = phihint(&tmp[tp].phih);
 			tp = phicls(tp, fn->tmp);
-			assert(ph == &tmp[tp].phih);
 			for (a=0; a<p->narg; a++)
 				if (rtype(p->arg[a]) == RTmp) {
 					t = p->arg[a].val;
 					adduse(&tmp[t], UPhi, b, p);
-					h = phihint(&tmp[t].phih);
 					t = phicls(t, fn->tmp);
-					assert(h == &tmp[t].phih);
-					if (t != tp) {
-						assert(h != ph);
+					if (t != tp)
 						tmp[t].phi = tp;
-						*h = (Hint *)ph;
-					} else
-						assert(h == ph);
 				}
 		}
 		for (i=b->ins; i-b->ins < b->nins; i++) {
