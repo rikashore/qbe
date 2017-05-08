@@ -41,6 +41,7 @@ sethint(int t, int r)
 		fprintf(stderr,"Setting hint of %s to %d.\n", tmp[t].name, r);
 		p->hint.r = r;
 		p->hint.w = loop;
+		tmp[t].visit = -1;
 	}
 }
 
@@ -95,7 +96,7 @@ radd(RMap *m, int t, int r)
 }
 
 static Ref
-ralloc(RMap *m, int t)
+ralloctry(RMap *m, int t, int try)
 {
 	bits regs;
 	int h, r, r0, r1;
@@ -113,6 +114,8 @@ ralloc(RMap *m, int t)
 	if (r == -1 || bshas(m->b, r))
 		r = *hint(t);
 	if (r == -1 || bshas(m->b, r)) {
+		if (try)
+			return R;
 		regs = tmp[phicls(t, tmp)].hint.m;
 		regs |= m->b->t[0];
 		if (KBASE(tmp[t].cls) == 0) {
@@ -138,6 +141,12 @@ Found:
 	if (h != -1 && h != r)
 		m->w[h] = t;
 	return TMP(r);
+}
+
+static inline Ref
+ralloc(RMap *m, int t)
+{
+	return ralloctry(m, t, 0);
 }
 
 static int
@@ -403,10 +412,8 @@ doblk(Blk *b, RMap *cur)
 		for (r=0; r<nr; r++)
 			*ra[r] = ralloc(cur, ra[r]->val);
 
-		/* try to change the register of a
-		 * hinted temporary if rf becomes
-		 * available
-		 */
+		/* try to change the register of a hinted
+		 * temporary if rf is available */
 		x = 1;
 		if (1 && rf != -1)
 			while ((t = cur->w[rf]) != 0) {
@@ -422,8 +429,8 @@ doblk(Blk *b, RMap *cur)
 				for (r=0; 1 && r<nr; r++)
 					if (req(*ra[r], TMP(rt)))
 						*ra[r] = TMP(rf);
+				fprintf(stderr, "Eager move %s (hint %d) %d!\n", tmp[t].name, *hint(t), x++);
 				break;
-				fprintf(stderr, "Eager move %d!\n", x++);
 				rf = rt; /* rt is now available */
 			}
 	}
@@ -517,6 +524,14 @@ rega(Fn *fn)
 				rl[j+1] = rl[j];
 				rl[j--] = t;
 			} while (j >= 0 && tcmp(t, rl[j]) > 0);
+		}
+		for (j=0; j<x; j++) {
+			t = rl[j];
+			dst = ralloctry(&cur, rl[j], 1);
+			if (!req(dst, R)) {
+				fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
+				fprintf(stderr, "==== In %d\n", dst.val);
+			}
 		}
 		for (j=0; j<x; j++) {
 			t = rl[j];
