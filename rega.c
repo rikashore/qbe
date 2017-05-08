@@ -509,7 +509,7 @@ rega(Fn *fn)
 		}
 	}
 
-	/* 2. assign registers following post-order */
+	/* 2. assign registers */
 	for (bp=blk; bp<&blk[fn->nblk]; bp++) {
 		b = *bp;
 		fprintf(stderr, "Allocating %s (id: %d, loop:%d)\n", b->name, b->id, b->loop);
@@ -605,6 +605,16 @@ rega(Fn *fn)
 		}
 		rcopy(&beg[n], &cur);
 	}
+	/* IDEA
+	 * loop through all blocks, create a parallel move at the
+	 * beginning for all the registers that are ill-placed in
+	 * all the predecessors in the same register
+	 *
+	 * this generalizes the combination of the two heuristics
+	 * above for test/prime.ssa (%p and %p1) and also makes
+	 * things nicer for test/strspn.ssa (mov %edx, %eax before
+	 * the return).
+	 */
 	if (debug['R'])  {
 		fprintf(stderr, "\n> Register mappings:\n");
 		for (n=0; n<fn->nblk; n++) {
