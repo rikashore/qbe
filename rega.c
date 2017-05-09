@@ -468,7 +468,7 @@ tcmp(int t1, int t2)
 void
 rega(Fn *fn)
 {
-	int j, t, r, r1, x, rl[Tmp0+1];
+	int j, t, r, r1, x, rl[Tmp0];
 	Blk *b, *b1, *s, ***ps, *blist, **blk, **bp;
 	RMap *end, *beg, cur, old;
 	Ins *i;
@@ -520,10 +520,11 @@ rega(Fn *fn)
 		memset(cur.w, 0, sizeof cur.w);
 		for (x=0, t=Tmp0; bsiter(b->out, &t); t++) {
 			j = x++;
-			do {
+			rl[j] = t;
+			while (j-- > 0 && tcmp(t, rl[j]) > 0) {
 				rl[j+1] = rl[j];
-				rl[j--] = t;
-			} while (j >= 0 && tcmp(t, rl[j]) > 0);
+				rl[j] = t;
+			}
 		}
 		for (j=0; j<x; j++) {
 			t = rl[j];
