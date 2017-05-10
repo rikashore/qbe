@@ -10,7 +10,7 @@ typedef struct RMap RMap;
 struct RMap {
 	int t[Tmp0];
 	int r[Tmp0];
-	int w[Tmp0]; /* wait list, for unmatched hints */
+	int w[Tmp0];   /* wait list, for unmatched hints */
 	BSet b[1];
 	int n;
 };
@@ -38,7 +38,7 @@ sethint(int t, int r)
 
 	p = &tmp[phicls(t, tmp)];
 	if (p->hint.r == -1 || p->hint.w > loop) {
-		fprintf(stderr,"Setting hint of %s to %d.\n", tmp[t].name, r);
+		// fprintf(stderr,"Setting hint of %s to %d.\n", tmp[t].name, r);
 		p->hint.r = r;
 		p->hint.w = loop;
 		tmp[t].visit = -1;
@@ -429,7 +429,7 @@ doblk(Blk *b, RMap *cur)
 				for (r=0; 1 && r<nr; r++)
 					if (req(*ra[r], TMP(rt)))
 						*ra[r] = TMP(rf);
-				fprintf(stderr, "Eager move %s (hint %d) %d!\n", tmp[t].name, *hint(t), x++);
+				// fprintf(stderr, "Eager move %s (hint %d) %d!\n", tmp[t].name, *hint(t), x++);
 				break;
 				rf = rt; /* rt is now available */
 			}
@@ -470,7 +470,7 @@ rega(Fn *fn)
 {
 	int j, t, r, r1, x, rl[Tmp0];
 	Blk *b, *b1, *s, ***ps, *blist, **blk, **bp;
-	RMap *end, *beg, cur, old;
+	RMap *end, *beg, cur, old, *m;
 	Ins *i;
 	Phi *p;
 	uint u, n;
@@ -512,7 +512,7 @@ rega(Fn *fn)
 	/* 2. assign registers */
 	for (bp=blk; bp<&blk[fn->nblk]; bp++) {
 		b = *bp;
-		fprintf(stderr, "Allocating %s (id: %d, loop:%d)\n", b->name, b->id, b->loop);
+		// fprintf(stderr, "Allocating %s (id: %d, loop:%d)\n", b->name, b->id, b->loop);
 		n = b->id;
 		loop = b->loop;
 		cur.n = 0;
@@ -530,15 +530,15 @@ rega(Fn *fn)
 			t = rl[j];
 			dst = ralloctry(&cur, rl[j], 1);
 			if (!req(dst, R)) {
-				fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
-				fprintf(stderr, "==== In %d\n", dst.val);
+				// fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
+				// fprintf(stderr, "==== In %d\n", dst.val);
 			}
 		}
 		for (j=0; j<x; j++) {
 			t = rl[j];
-			fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
+			// fprintf(stderr, "-- Allocating %%%s (hint %d)\n", tmp[t].name, *hint(t));
 			dst = ralloc(&cur, rl[j]);
-			fprintf(stderr, "==== In %d\n", dst.val);
+			// fprintf(stderr, "==== In %d\n", dst.val);
 		}
 	#if 0
 		for (x=0; x<2; x++)
@@ -606,16 +606,71 @@ rega(Fn *fn)
 		}
 		rcopy(&beg[n], &cur);
 	}
-	/* IDEA
-	 * loop through all blocks, create a parallel move at the
-	 * beginning for all the registers that are ill-placed in
-	 * all the predecessors in the same register
-	 *
-	 * this generalizes the combination of the two heuristics
-	 * above for test/prime.ssa (%p and %p1) and also makes
-	 * things nicer for test/strspn.ssa (mov %edx, %eax before
-	 * the return).
-	 */
+	for (s=fn->start; s; s=s->link) {
+		if (s->npred <= 1)
+			continue;
+		memset(rl, 0, sizeof rl);
+		// rl maps registers live at the beginning
+		// of s to the ones in all the predecessors
+		m = &beg[s->id];
+		for (p=s->phi; p; p=p->link) {
+			r = rfind(m, p->to.val);
+			if (r == -1)
+				continue;
+			// set rl[r] to the unique destination
+			// of all predecessors
+			for (u=0; u<p->narg; u++) {
+				b = p->blk[u];
+				src = p->arg[u];
+				if (rtype(src) != RTmp)
+					continue;
+				x = rfind(&end[b->id], src.val);
+				assert(x != -1);
+				if (!rl[r] || rl[r] == x)
+					rl[r] = x;
+				else
+					rl[r] = -1;
+			}
+			if (rl[r] == 0)
+				rl[r] = -1;
+		}
+		for (j=0; j<m->n; j++) {
+			t = m->t[j];
+			r = m->r[j];
+			if (rl[r] || t < Tmp0)
+				continue;
+			for (bp=s->pred; bp<&s->pred[s->npred]; bp++) {
+				x = rfind(&end[(*bp)->id], t);
+				assert(x != -1);
+				if (!rl[r] || rl[r] == x)
+					rl[r] = x;
+				else
+					rl[r] = -1;
+			}
+		}
+		npm = 0;
+		for (j=0; j<m->n; j++) {
+			t = m->t[j];
+			r = m->r[j];
+			x = rl[r];
+			assert(x != 0 || t < Tmp0);
+			if (x > 0) {
+				// x is the register used in all the preds
+				pmadd(TMP(x), TMP(r), tmp[t].cls);
+				// fprintf(stderr, "MOVING %d in %d\n", x, r);
+				m->r[j] = x;
+			}
+		}
+		curi = &insb[NIns];
+		pmgen();
+		j = &insb[NIns] - curi;
+		if (j == 0)
+			continue;
+		s->nins += j;
+		i = alloc(s->nins * sizeof(Ins));
+		icpy(icpy(i, curi, j), s->ins, s->nins-j);
+		s->ins = i;
+	}
 	if (debug['R'])  {
 		fprintf(stderr, "\n> Register mappings:\n");
 		for (n=0; n<fn->nblk; n++) {
