@@ -288,7 +288,7 @@ dopm(Blk *b, Ins *i, RMap *m)
 	bits def;
 
 	m0 = *m; /* okay since we don't use m0.b */
-	m0.b[0] = (BSet){0};
+	m0.b->t = 0;
 	i1 = ++i;
 	do {
 		i--;
@@ -323,7 +323,7 @@ dopm(Blk *b, Ins *i, RMap *m)
 }
 
 static int
-prio(Ref r1, Ref r2)
+prio1(Ref r1, Ref r2)
 {
 	/* trivial heuristic to begin with,
 	 * later we can use the distance to
@@ -339,7 +339,7 @@ insert(Ref *r, Ref **rs, int p)
 	int i;
 
 	rs[i = p] = r;
-	while (i-- > 0 && prio(*r, *rs[i])) {
+	while (i-- > 0 && prio1(*r, *rs[i])) {
 		rs[i+1] = rs[i];
 		rs[i] = r;
 	}
@@ -438,8 +438,10 @@ doblk(Blk *b, RMap *cur)
 	idup(&b->ins, curi, b->nins);
 }
 
+/* qsort() comparison function to peel
+ * loop nests from inside out */
 static int
-bcmp(const void *a, const void *b)
+carve(const void *a, const void *b)
 {
 	Blk *ba, *bb;
 
@@ -452,10 +454,12 @@ bcmp(const void *a, const void *b)
 	return ba->loop > bb->loop ? -1 : +1;
 }
 
+/* comparison function to order temporaries
+ * for allocation at the end of blocks */
 static int
-tcmp(int t1, int t2)
+prio2(int t1, int t2)
 {
-	if ((tmp[t1].visit ^ tmp[t2].visit) < 0)
+	if ((tmp[t1].visit ^ tmp[t2].visit) < 0)  /* != signs */
 		return tmp[t1].visit != -1 ? +1 : -1;
 	if ((*hint(t1) ^ *hint(t2)) < 0)
 		return *hint(t1) != -1 ? +1 : -1;
@@ -498,7 +502,7 @@ rega(Fn *fn)
 	}
 	for (bp=blk, b=fn->start; b; b=b->link)
 		*bp++ = b;
-	qsort(blk, fn->nblk, sizeof blk[0], bcmp);
+	qsort(blk, fn->nblk, sizeof blk[0], carve);
 	if (1) {
 	for (b=fn->start, i=b->ins; i-b->ins < b->nins; i++)
 		if (i->op != Ocopy || !isreg(i->arg[0]))
@@ -521,7 +525,7 @@ rega(Fn *fn)
 		for (x=0, t=Tmp0; bsiter(b->out, &t); t++) {
 			j = x++;
 			rl[j] = t;
-			while (j-- > 0 && tcmp(t, rl[j]) > 0) {
+			while (j-- > 0 && prio2(t, rl[j]) > 0) {
 				rl[j+1] = rl[j];
 				rl[j] = t;
 			}
