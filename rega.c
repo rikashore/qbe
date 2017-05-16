@@ -25,6 +25,9 @@ static struct {
 static int npm;        /* size of pm */
 static int loop;       /* current loop level */
 
+static uint stmov;     /* stats: added moves */
+static uint stblk;     /* stats: added blocks */
+
 static int *
 hint(int t)
 {
@@ -374,6 +377,7 @@ doblk(Blk *b, RMap *cur)
 			if (regcpy(i)) {
 				curi++;
 				i1 = dopm(b, i1, cur);
+				stmov += i+1 - curi;
 				continue;
 			}
 			if (isreg(i->to))
@@ -425,6 +429,7 @@ doblk(Blk *b, RMap *cur)
 				ralloc(cur, t);
 				assert(bshas(cur->b, rf));
 				emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
+				stmov += 1;
 				cur->w[rf] = 0;
 				for (r=0; 1 && r<nr; r++)
 					if (req(*ra[r], TMP(rt)))
@@ -481,6 +486,8 @@ rega(Fn *fn)
 	Ref src, dst;
 
 	/* 1. setup */
+	stmov = 0;
+	stblk = 0;
 	regu = 0;
 	tmp = fn->tmp;
 	mem = fn->mem;
@@ -670,11 +677,13 @@ rega(Fn *fn)
 		j = &insb[NIns] - curi;
 		if (j == 0)
 			continue;
+		stmov += j;
 		s->nins += j;
 		i = alloc(s->nins * sizeof(Ins));
 		icpy(icpy(i, curi, j), s->ins, s->nins-j);
 		s->ins = i;
 	}
+
 	if (debug['R'])  {
 		fprintf(stderr, "\n> Register mappings:\n");
 		for (n=0; n<fn->nblk; n++) {
@@ -725,6 +734,8 @@ rega(Fn *fn)
 			fn->nblk++;
 			sprintf(b1->name, "%s_%s", b->name, s->name);
 			b1->nins = &insb[NIns] - curi;
+			stmov += b1->nins;
+			stblk += 1;
 			idup(&b1->ins, curi, b1->nins);
 			b1->jmp.type = Jjmp;
 			b1->s1 = s;
@@ -740,6 +751,9 @@ rega(Fn *fn)
 	fn->reg = regu;
 
 	if (debug['R']) {
+		fprintf(stderr, "\n> Register allocation statistics:\n");
+		fprintf(stderr, "\tnew moves:  %d\n", stmov);
+		fprintf(stderr, "\tnew blocks: %d\n", stblk);
 		fprintf(stderr, "\n> After register allocation:\n");
 		printfn(fn, stderr);
 	}
