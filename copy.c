@@ -77,7 +77,8 @@ phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Tmp *tmp)
 		}
 		u = tmp[t].use;
 		u1 = &u[tmp[t].nuse];
-		vgrow(&stk, u1-u);
+		vgrow(pstk, nstk+(u1-u));
+		stk = *pstk;
 		for (; u<u1; u++)
 			stk[nstk++] = u;
 	}
@@ -85,7 +86,6 @@ phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Tmp *tmp)
 	if (!bscount(as))
 		for (t=0; bsiter(ts, &t); t++)
 			cpy[t] = r;
-	*pstk = stk;
 }
 
 static void
