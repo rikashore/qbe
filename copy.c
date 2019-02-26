@@ -39,6 +39,10 @@ copyof(Ref r, Ref *cpy)
 	return r;
 }
 
+/* detects a cluster of phis/copies redundant with 'r';
+ * the algorithm is inspired by Section 3.2 of "Simple
+ * and Efficient SSA Construction" by Braun M. et al.
+ */
 static void
 phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Tmp *tmp)
 {
@@ -95,6 +99,7 @@ subst(Ref *pr, Ref *cpy)
 	*pr = copyof(*pr, cpy);
 }
 
+/* requires use and rpo, breaks use */
 void
 copy(Fn *fn)
 {
@@ -111,6 +116,8 @@ copy(Fn *fn)
 	bsinit(as, fn->ntmp);
 	cpy = emalloc(fn->ntmp * sizeof cpy[0]);
 	stk = vnew(10, sizeof stk[0], Pheap);
+
+	/* 1. build the copy-of map */
 	for (n=0; n<fn->nblk; n++) {
 		b = fn->rpo[n];
 		for (p=b->phi; p; p=p->link) {
@@ -136,6 +143,9 @@ copy(Fn *fn)
 				cpy[i->to.val] = i->to;
 		}
 	}
+
+	/* 2. remove redundant phis/copies
+	 * and rewrite their uses */
 	for (b=fn->start; b; b=b->link) {
 		for (pp=&b->phi; (p=*pp);) {
 			r = cpy[p->to.val];
@@ -158,6 +168,7 @@ copy(Fn *fn)
 		}
 		subst(&b->jmp.arg, cpy);
 	}
+
 	if (debug['C']) {
 		fprintf(stderr, "\n> Copy information:");
 		for (t=Tmp0; t<fn->ntmp; t++) {
