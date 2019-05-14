@@ -1,15 +1,7 @@
 #include "all.h"
 
 static int
-iscon(Ref r, int64_t bits, Fn *fn)
-{
-	return rtype(r) == RCon
-		&& fn->con[r.val].type == CBits
-		&& fn->con[r.val].bits.i == bits;
-}
-
-static int
-iscopy(Ins *i, Ref r, Fn *fn)
+iscopy(Ins *i, Ref r, Tmp *tmp)
 {
 	static bits extcpy[] = {
 		[WFull] = 0,
@@ -23,25 +15,15 @@ iscopy(Ins *i, Ref r, Fn *fn)
 	bits b;
 	Tmp *t;
 
-	switch (i->op) {
-	case Ocopy:
+	if (i->op == Ocopy)
 		return 1;
-	case Omul:
-		return iscon(i->arg[0], 1, fn) || iscon(i->arg[1], 1, fn);
-	case Odiv:
-		return iscon(i->arg[1], 1, fn);
-	case Oadd:
-		return iscon(i->arg[0], 0, fn) || iscon(i->arg[1], 0, fn);
-	default:
-		break;
-	}
 	if (!isext(i->op) || rtype(r) != RTmp)
 		return 0;
 	if (i->op == Oextsw || i->op == Oextuw)
 	if (i->cls == Kw)
 		return 1;
 
-	t = &fn->tmp[r.val];
+	t = &tmp[r.val];
 	assert(KBASE(t->cls) == 0);
 	if (i->cls == Kl && t->cls == Kw)
 		return 0;
@@ -62,7 +44,7 @@ copyof(Ref r, Ref *cpy)
  * and Efficient SSA Construction" by Braun M. et al.
  */
 static void
-phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Fn *fn)
+phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Tmp *tmp)
 {
 	Use **stk, *u, *u1;
 	uint nstk, a;
@@ -76,7 +58,7 @@ phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Fn *fn)
 	stk[0] = &(Use){.type = UPhi, .u.phi = p};
 	while (nstk) {
 		u = stk[--nstk];
-		if (u->type == UIns && iscopy(u->u.ins, r, fn)) {
+		if (u->type == UIns && iscopy(u->u.ins, r, tmp)) {
 			p = &(Phi){.narg = 0};
 			t = u->u.ins->to.val;
 		}
@@ -97,8 +79,8 @@ phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Fn *fn)
 				return;
 			bsset(as, r1.val);
 		}
-		u = fn->tmp[t].use;
-		u1 = &u[fn->tmp[t].nuse];
+		u = tmp[t].use;
+		u1 = &u[tmp[t].nuse];
 		vgrow(pstk, nstk+(u1-u));
 		stk = *pstk;
 		for (; u<u1; u++)
@@ -148,14 +130,14 @@ copy(Fn *fn)
 					r = copyof(p->arg[a], cpy);
 			assert(!req(r, R));
 			cpy[p->to.val] = p->to;
-			phisimpl(p, r, cpy, &stk, ts, as, fn);
+			phisimpl(p, r, cpy, &stk, ts, as, fn->tmp);
 		}
 		for (i=b->ins; i<&b->ins[b->nins]; i++) {
 			assert(rtype(i->to) <= RTmp);
 			if (!req(cpy[i->to.val], R))
 				continue;
 			r = copyof(i->arg[0], cpy);
-			if (iscopy(i, r, fn))
+			if (iscopy(i, r, fn->tmp))
 				cpy[i->to.val] = r;
 			else
 				cpy[i->to.val] = i->to;
